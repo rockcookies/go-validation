@@ -1,4 +1,4 @@
-// Copyright 2016 Qiang Xue. All rights reserved.
+// Copyright 2016 Qiang Xue, 2022 Jellydator. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -9,23 +9,54 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"time"
 )
 
+// CmpOperator is used to define comparison operators.
+type CmpOperator int
+
+// Available comparison operators.
+const (
+	GreaterThan CmpOperator = iota
+	GreaterEqualThan
+	LessThan
+	LessEqualThan
+)
+
+// CmpFunc is used to compare two values.
+type CmpFunc func(op CmpOperator, v1, v2 interface{}) bool
+
+// ValuerProxy is used to transform driver.Valuer values before
+// validating them.
+//
+// The input is the value to transform and the output is
+// the new value and a boolean indicating whether the value was
+// actually transformed.
+type ValuerProxy func(interface{}) (interface{}, bool)
+
+// DefaultValuerProxy is the default implementation of ValuerProxy.
+func DefaultValuerProxy(orig interface{}) (interface{}, bool) {
+	if valuer, ok := orig.(driver.Valuer); ok {
+		if value, err := valuer.Value(); err == nil {
+			return value, true
+		}
+	}
+	return orig, false
+}
+
 var (
-	bytesType  = reflect.TypeOf([]byte(nil))
-	valuerType = reflect.TypeOf((*driver.Valuer)(nil)).Elem()
+	bytesType   = reflect.TypeOf([]byte(nil))
+	valuerProxy ValuerProxy
 )
 
 // EnsureString ensures the given value is a string.
 // If the value is a byte slice, it will be typecast into a string.
-// An error is returned otherwise.
+// An error is returned otherwise. Byte arrays are not supported.
 func EnsureString(value interface{}) (string, error) {
 	v := reflect.ValueOf(value)
 	if v.Kind() == reflect.String {
 		return v.String(), nil
 	}
-	if v.Type() == bytesType {
+	if v.Kind() == reflect.Slice && v.Type() == bytesType {
 		return string(v.Interface().([]byte)), nil
 	}
 	return "", errors.New("must be either a string or byte slice")
@@ -99,16 +130,8 @@ func ToFloat(value interface{}) (float64, error) {
 func IsEmpty(value interface{}) bool {
 	v := reflect.ValueOf(value)
 	switch v.Kind() {
-	case reflect.String, reflect.Array, reflect.Map, reflect.Slice:
+	case reflect.Array, reflect.Map, reflect.Slice:
 		return v.Len() == 0
-	case reflect.Bool:
-		return !v.Bool()
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return v.Int() == 0
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return v.Uint() == 0
-	case reflect.Float32, reflect.Float64:
-		return v.Float() == 0
 	case reflect.Invalid:
 		return true
 	case reflect.Interface, reflect.Ptr:
@@ -116,14 +139,9 @@ func IsEmpty(value interface{}) bool {
 			return true
 		}
 		return IsEmpty(v.Elem().Interface())
-	case reflect.Struct:
-		v, ok := value.(time.Time)
-		if ok && v.IsZero() {
-			return true
-		}
+	default:
+		return reflect.DeepEqual(value, reflect.Zero(reflect.TypeOf(value)).Interface())
 	}
-
-	return false
 }
 
 // Indirect returns the value that the given interface or pointer references to.
@@ -148,16 +166,18 @@ func Indirect(value interface{}) (interface{}, bool) {
 		}
 	}
 
-	if rv.Type().Implements(valuerType) {
-		return indirectValuer(value.(driver.Valuer))
+	if valuerProxy != nil {
+		if val, ok := valuerProxy(value); ok {
+			return Indirect(val)
+		}
 	}
 
 	return value, false
 }
 
-func indirectValuer(valuer driver.Valuer) (interface{}, bool) {
-	if value, err := valuer.Value(); value != nil && err == nil {
-		return Indirect(value)
-	}
-	return nil, true
+// SetValuerProxy allows the global ValuerProxy to be updated.
+// If the value is nil, the global ValuerProxy is disabled.
+// The global ValuerProxy is nil by default.
+func SetValuerProxy(valuer ValuerProxy) {
+	valuerProxy = valuer
 }

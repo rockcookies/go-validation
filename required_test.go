@@ -15,6 +15,10 @@ func TestRequired(t *testing.T) {
 	s1 := "123"
 	s2 := ""
 	var time1 time.Time
+	var myStruct MyStruct
+	b1 := true
+	b2 := false
+	var b3 *bool
 	tests := []struct {
 		tag   string
 		value interface{}
@@ -26,6 +30,13 @@ func TestRequired(t *testing.T) {
 		{"t4", &s2, "cannot be blank"},
 		{"t5", nil, "cannot be blank"},
 		{"t6", time1, "cannot be blank"},
+		{"t7", myStruct, "cannot be blank"},
+		{"t8", &myStruct, "cannot be blank"},
+		{"t9", b1, ""},
+		{"t10", b2, "cannot be blank"},
+		{"t11", b3, "cannot be blank"},
+		{"t12", &b1, ""},
+		{"t13", &b2, "cannot be blank"},
 	}
 
 	for _, test := range tests {
@@ -97,4 +108,8 @@ func TestRequiredRule_Error(t *testing.T) {
 	assert.Equal(t, err.Code(), r.err.Code())
 	assert.Equal(t, err.Message(), r.err.Message())
 	assert.NotEqual(t, err, Required.err)
+}
+
+type MyStruct struct {
+	MyField string
 }

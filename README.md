@@ -1,32 +1,30 @@
-# Go Validation
+# validation
 
-[![Lint](https://github.com/rockcookies/go-validation/actions/workflows/lint.yaml/badge.svg)](https://github.com/rockcookies/go-validation/actions/workflows/lint.yaml)
-[![Test Go](https://github.com/rockcookies/go-validation/actions/workflows/test.yaml/badge.svg)](https://github.com/rockcookies/go-validation/actions/workflows/test.yaml)
-[![GoDoc](https://godoc.org/github.com/rockcookies/go-validation?status.png)](http://godoc.org/github.com/rockcookies/go-validation)
-[![Coverage Status](https://codecov.io/gh/rockcookies/go-validation/graph/badge.svg?token=Q3AEO8GZ8G)](https://codecov.io/gh/rockcookies/go-validation)
-[![Go Report](https://goreportcard.com/badge/github.com/rockcookies/go-validation)](https://goreportcard.com/report/github.com/rockcookies/go-validation)
-![Latest Tag](https://img.shields.io/github/v/tag/rockcookies/go-validation)
-
-NOTE: This is a fork of the well known [ozzo-validation](https://github.com/go-ozzo/ozzo-validation) package which as of Feb 2023 doesn't appear to be under active maintenance for more than 2 years. At [Invopop](https://invopop.com) we use this library extensively, so it only felt appropriate to be more pro-active. We'll do out best to respond to issues and review or merge any pull requests.
+[![Go Reference](https://pkg.go.dev/badge/github.com/rockcookies/go-validation.svg)](https://pkg.go.dev/github.com/rockcookies/go-validation)
+[![Build Status](https://github.com/rockcookies/go-validation/actions/workflows/go.yml/badge.svg)](https://github.com/rockcookies/go-validation/actions/workflows/go.yml)
+[![Coverage Status](https://coveralls.io/repos/github/rockcookies/go-validation/badge.svg?branch=master)](https://coveralls.io/github/rockcookies/go-validation?branch=master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/rockcookies/go-validation)](https://goreportcard.com/report/github.com/rockcookies/go-validation)
 
 ## Description
+Thanks:
+https://github.com/invopop/validation
+https://github.com/rockcookies/go-validation
+
+This is an actively maintained fork of [ozzo-validation](https://github.com/go-ozzo/ozzo-validation).
 
 validation is a Go package that provides configurable and extensible data validation capabilities.
-
 It has the following features:
 
-- use normal programming constructs rather than error-prone struct tags to specify how data should be validated.
-- can validate data of different types, e.g., structs, strings, byte slices, slices, maps, arrays.
-- can validate custom data types as long as they implement the `Validatable` interface.
-- can validate data types that implement the `sql.Valuer` interface (e.g. `sql.NullString`).
-- customizable and well-formatted validation errors.
-- error code and message translation support.
-- provide a rich set of validation rules right out of box.
-- extremely easy to create and use custom validation rules.
+* use normal programming constructs rather than error-prone struct tags to specify how data should be validated.
+* can validate data of different types, e.g., structs, strings, byte slices, slices, maps, arrays.
+* can validate custom data types as long as they implement the `Validatable` interface.
+* can validate data types that implement the `sql.Valuer` interface (e.g. `sql.NullString`).
+* customizable and well-formatted validation errors.
+* error code and message translation support.
+* provide a rich set of validation rules right out of box.
+* extremely easy to create and use custom validation rules.
 
 For an example on how this library is used in an application, please refer to [go-rest-api](https://github.com/qiangxue/go-rest-api) which is a starter kit for building RESTful APIs in Go.
-
-For further examples, checkout the [GOBL project](https://github.com/invopop/gobl) which uses validation extensively.
 
 ## Requirements
 
@@ -91,18 +89,25 @@ type Address struct {
 	City   string
 	State  string
 	Zip    string
+  User struct {
+    Name string
+  }
 }
 
 func (a Address) Validate() error {
 	return validation.ValidateStruct(&a,
-		// Street cannot be empty, and the length must between 2 and 50
-		validation.Field(&a.Street, validation.Required, validation.Length(2, 50)),
-		// City cannot be empty, and the length must between 2 and 50
-		validation.Field(&a.City, validation.Required, validation.Length(2, 50)),
+		// Street cannot be empty, and the length must between 5 and 50
+		validation.Field(&a.Street, validation.Required, validation.Length(5, 50)),
+		// City cannot be empty, and the length must between 5 and 50
+		validation.Field(&a.City, validation.Required, validation.Length(5, 50)),
 		// State cannot be empty, and must be a string consisting of two letters in upper case
 		validation.Field(&a.State, validation.Required, validation.Match(regexp.MustCompile("^[A-Z]{2}$"))),
 		// State cannot be empty, and must be a string consisting of five digits
 		validation.Field(&a.Zip, validation.Required, validation.Match(regexp.MustCompile("^[0-9]{5}$"))),
+		// User.Name cannot be empty, and the length must between 5 and 50
+		validation.FieldStruct(
+      &a.User, validation.Field(&a.User.Name, validation.Required, validation.Length(5, 50)),
+    ),
 	)
 }
 
@@ -381,6 +386,10 @@ will report a validation error.
 If a data type implements the `sql.Valuer` interface (e.g. `sql.NullString`), the built-in validation rules will handle
 it properly. In particular, when a rule is validating such data, it will call the `Value()` method and validate
 the returned value instead.
+
+Note that for this to work,
+`validation.SetValuerProxy(validation.DefaultValuerProxy)` needs to be called
+before executing any validation functions.
 
 ### Required vs. Not Nil
 
