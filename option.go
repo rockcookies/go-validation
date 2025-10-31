@@ -6,17 +6,20 @@ import (
 )
 
 type (
-	GetErrorFieldNameFunc func(f *reflect.StructField) string
-	ValuerFunc            func(any) (any, bool)
+	ValuerFunc                func(any) (any, bool)
+	GetErrorFieldNameFunc     func(f *reflect.StructField) string
+	FindStructFieldByNameFunc func(structValue reflect.Value, name string) (reflect.Value, *reflect.StructField, bool)
 
 	Options interface {
 		ValuerFunc() ValuerFunc
 		GetErrorFieldNameFunc() GetErrorFieldNameFunc
+		FindStructFieldByNameFunc() FindStructFieldByNameFunc
 	}
 
 	options struct {
-		valuerFunc            ValuerFunc
-		getErrorFieldNameFunc GetErrorFieldNameFunc
+		valuerFunc                ValuerFunc
+		getErrorFieldNameFunc     GetErrorFieldNameFunc
+		findStructFieldByNameFunc FindStructFieldByNameFunc
 	}
 
 	Option func(*options)
@@ -29,26 +32,42 @@ type optionsCtxKeyType struct{}
 var optionsCtxKey = optionsCtxKeyType{}
 
 var defaultOptions = &options{
-	valuerFunc:            DefaultValuer,
-	getErrorFieldNameFunc: DefaultGetErrorFieldName,
+	valuerFunc:                DefaultValuer,
+	getErrorFieldNameFunc:     DefaultGetErrorFieldName,
+	findStructFieldByNameFunc: DefaultFindStructFieldByName,
 }
 
 func (o *options) ValuerFunc() ValuerFunc                       { return o.valuerFunc }
 func (o *options) GetErrorFieldNameFunc() GetErrorFieldNameFunc { return o.getErrorFieldNameFunc }
+func (o *options) FindStructFieldByNameFunc() FindStructFieldByNameFunc {
+	return o.findStructFieldByNameFunc
+}
 
 func DefaultOptions() Options {
 	return defaultOptions
 }
 
-func WithValuerFunc(valuerFunc ValuerFunc) Option {
+func WithValuerFunc(f ValuerFunc) Option {
 	return func(o *options) {
-		o.valuerFunc = valuerFunc
+		if f != nil {
+			o.valuerFunc = f
+		}
 	}
 }
 
 func WithGetErrorFieldNameFunc(f GetErrorFieldNameFunc) Option {
 	return func(o *options) {
-		o.getErrorFieldNameFunc = f
+		if f != nil {
+			o.getErrorFieldNameFunc = f
+		}
+	}
+}
+
+func WithFindStructFieldByNameFunc(f FindStructFieldByNameFunc) Option {
+	return func(o *options) {
+		if f != nil {
+			o.findStructFieldByNameFunc = f
+		}
 	}
 }
 

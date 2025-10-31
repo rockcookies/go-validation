@@ -6,6 +6,7 @@ package validation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -319,4 +320,544 @@ func TestErrorFieldName(t *testing.T) {
 			assert.Equalf(t, tt.want, got, "ErrorFieldName(%v, %v)", tt.args.structPtr, tt.args.fieldPtr)
 		})
 	}
+}
+
+func TestNamedField(t *testing.T) {
+	tests := []struct {
+		name         string
+		fieldName    string
+		rules        []Rule
+		validateFunc func(t *testing.T, fr *FieldRules)
+	}{
+		{
+			name:      "simple named field",
+			fieldName: "Field1",
+			rules:     []Rule{Required},
+			validateFunc: func(t *testing.T, fr *FieldRules) {
+				assert.Equal(t, "Field1", fr.name)
+				assert.True(t, fr.isNamedField)
+				assert.Len(t, fr.rules, 1)
+			},
+		},
+		{
+			name:      "named field with multiple rules",
+			fieldName: "Email",
+			rules:     []Rule{Required, Length(5, 100)},
+			validateFunc: func(t *testing.T, fr *FieldRules) {
+				assert.Equal(t, "Email", fr.name)
+				assert.True(t, fr.isNamedField)
+				assert.Len(t, fr.rules, 2)
+			},
+		},
+		{
+			name:      "named field with no rules",
+			fieldName: "Optional",
+			rules:     nil,
+			validateFunc: func(t *testing.T, fr *FieldRules) {
+				assert.Equal(t, "Optional", fr.name)
+				assert.True(t, fr.isNamedField)
+				assert.Len(t, fr.rules, 0)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fr := NamedField(tt.fieldName, tt.rules...)
+			tt.validateFunc(t, fr)
+		})
+	}
+}
+
+func TestNamedField_Integration(t *testing.T) {
+	type TestStruct struct {
+		Name  string
+		Email string
+		Age   int
+	}
+
+	tests := []struct {
+		name      string
+		setupFunc func() (*TestStruct, []*FieldRules)
+		wantErr   string
+	}{
+		{
+			name: "valid named fields",
+			setupFunc: func() (*TestStruct, []*FieldRules) {
+				ts := &TestStruct{Name: "John", Email: "john@example.com", Age: 25}
+				return ts, []*FieldRules{
+					NamedField("Name", Required),
+					NamedField("Email", Required),
+					NamedField("Age", Required),
+				}
+			},
+			wantErr: "",
+		},
+		{
+			name: "missing required named field",
+			setupFunc: func() (*TestStruct, []*FieldRules) {
+				ts := &TestStruct{Name: "", Email: "john@example.com", Age: 25}
+				return ts, []*FieldRules{
+					NamedField("Name", Required),
+				}
+			},
+			wantErr: "Name: cannot be blank.",
+		},
+		{
+			name: "lowercase field name should be auto-capitalized",
+			setupFunc: func() (*TestStruct, []*FieldRules) {
+				ts := &TestStruct{Name: "John", Email: "", Age: 25}
+				return ts, []*FieldRules{
+					NamedField("email", Required),
+				}
+			},
+			wantErr: "Email: cannot be blank.",
+		},
+		{
+			name: "invalid named field not found",
+			setupFunc: func() (*TestStruct, []*FieldRules) {
+				ts := &TestStruct{Name: "John"}
+				return ts, []*FieldRules{
+					NamedField("NonExistent", Required),
+				}
+			},
+			wantErr: "field #0 cannot be found in the struct",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts, rules := tt.setupFunc()
+			err := ValidateStructWithContext(context.Background(), ts, rules...)
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.EqualError(t, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestNamedStructField(t *testing.T) {
+	type Inner struct {
+		Value string
+	}
+	type Outer struct {
+		InnerStruct Inner
+	}
+
+	tests := []struct {
+		name      string
+		setupFunc func() (*Outer, []*FieldRules)
+		wantErr   string
+	}{
+		{
+			name: "valid nested struct field",
+			setupFunc: func() (*Outer, []*FieldRules) {
+				outer := &Outer{InnerStruct: Inner{Value: "test"}}
+				return outer, []*FieldRules{
+					NamedStructField("InnerStruct",
+						Field(&outer.InnerStruct.Value, Required),
+					),
+				}
+			},
+			wantErr: "",
+		},
+		{
+			name: "invalid nested struct field",
+			setupFunc: func() (*Outer, []*FieldRules) {
+				outer := &Outer{InnerStruct: Inner{Value: ""}}
+				return outer, []*FieldRules{
+					NamedStructField("InnerStruct",
+						Field(&outer.InnerStruct.Value, Required),
+					),
+				}
+			},
+			wantErr: "InnerStruct: (Value: cannot be blank.).",
+		},
+		{
+			name: "lowercase nested struct field name",
+			setupFunc: func() (*Outer, []*FieldRules) {
+				outer := &Outer{InnerStruct: Inner{Value: ""}}
+				return outer, []*FieldRules{
+					NamedStructField("innerStruct",
+						Field(&outer.InnerStruct.Value, Required),
+					),
+				}
+			},
+			wantErr: "InnerStruct: (Value: cannot be blank.).",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			outer, rules := tt.setupFunc()
+			err := ValidateStructWithContext(context.Background(), outer, rules...)
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.EqualError(t, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestFieldStruct(t *testing.T) {
+	type Address struct {
+		Street string
+		City   string
+	}
+	type Person struct {
+		Name    string
+		Address Address
+	}
+
+	tests := []struct {
+		name      string
+		setupFunc func() (*Person, []*FieldRules)
+		wantErr   string
+	}{
+		{
+			name: "valid nested struct with FieldStruct",
+			setupFunc: func() (*Person, []*FieldRules) {
+				p := &Person{
+					Name:    "John",
+					Address: Address{Street: "Main St", City: "NYC"},
+				}
+				return p, []*FieldRules{
+					Field(&p.Name, Required),
+					FieldStruct(&p.Address,
+						Field(&p.Address.Street, Required),
+						Field(&p.Address.City, Required),
+					),
+				}
+			},
+			wantErr: "",
+		},
+		{
+			name: "invalid nested struct with FieldStruct",
+			setupFunc: func() (*Person, []*FieldRules) {
+				p := &Person{
+					Name:    "John",
+					Address: Address{Street: "", City: "NYC"},
+				}
+				return p, []*FieldRules{
+					FieldStruct(&p.Address,
+						Field(&p.Address.Street, Required),
+						Field(&p.Address.City, Required),
+					),
+				}
+			},
+			wantErr: "Address: (Street: cannot be blank.).",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, rules := tt.setupFunc()
+			err := ValidateStructWithContext(context.Background(), p, rules...)
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.EqualError(t, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestDefaultFindStructFieldByName(t *testing.T) {
+	type TestStruct struct {
+		Name  string
+		Email string
+		age   int
+	}
+
+	ts := TestStruct{Name: "John", Email: "john@example.com", age: 25}
+	value := reflect.ValueOf(ts)
+
+	tests := []struct {
+		name      string
+		fieldName string
+		wantFound bool
+		wantValue interface{}
+	}{
+		{
+			name:      "find capitalized field",
+			fieldName: "Name",
+			wantFound: true,
+			wantValue: "John",
+		},
+		{
+			name:      "find field with lowercase first letter should capitalize",
+			fieldName: "name",
+			wantFound: true,
+			wantValue: "John",
+		},
+		{
+			name:      "find another field",
+			fieldName: "email",
+			wantFound: true,
+			wantValue: "john@example.com",
+		},
+		{
+			name:      "non-existent field",
+			fieldName: "NonExistent",
+			wantFound: false,
+		},
+		{
+			name:      "empty field name",
+			fieldName: "",
+			wantFound: false,
+		},
+		{
+			name:      "unexported field should not be found by lowercase name",
+			fieldName: "age",
+			wantFound: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fv, ft, found := DefaultFindStructFieldByName(value, tt.fieldName)
+			assert.Equal(t, tt.wantFound, found)
+			if found {
+				assert.NotNil(t, ft)
+				assert.True(t, fv.IsValid())
+				if tt.wantValue != nil {
+					assert.Equal(t, tt.wantValue, fv.Interface())
+				}
+			}
+		})
+	}
+}
+
+func TestDefaultGetErrorFieldName(t *testing.T) {
+	type TestStruct struct {
+		Name      string
+		JSONField string `json:"json_name"`
+		EmptyTag  string `json:""`
+		DashTag   string `json:"-"`
+		CommaTag  string `json:"comma_name,omitempty"`
+		NoTag     string
+	}
+
+	ts := TestStruct{}
+	value := reflect.ValueOf(&ts).Elem()
+
+	tests := []struct {
+		name      string
+		fieldName string
+		want      string
+	}{
+		{
+			name:      "field with json tag",
+			fieldName: "JSONField",
+			want:      "json_name",
+		},
+		{
+			name:      "field with empty json tag",
+			fieldName: "EmptyTag",
+			want:      "EmptyTag",
+		},
+		{
+			name:      "field with dash json tag",
+			fieldName: "DashTag",
+			want:      "DashTag",
+		},
+		{
+			name:      "field with comma in json tag",
+			fieldName: "CommaTag",
+			want:      "comma_name",
+		},
+		{
+			name:      "field with no tag",
+			fieldName: "NoTag",
+			want:      "NoTag",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ft, _ := value.Type().FieldByName(tt.fieldName)
+			got := DefaultGetErrorFieldName(&ft)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestGetErrorFieldName_ProtobufTag(t *testing.T) {
+	var s1 Struct1
+	v1 := reflect.ValueOf(&s1).Elem()
+
+	protobufField := findStructField(v1, reflect.ValueOf(&s1.ProtobufField))
+	assert.NotNil(t, protobufField)
+
+	// Test with json tag (should return json name)
+	jsonName := getErrorFieldName(protobufField, "json")
+	assert.Equal(t, "some_protobuf_field", jsonName)
+
+	// Test with protobuf tag - getErrorFieldName splits on comma and returns first part
+	protobufName := getErrorFieldName(protobufField, "protobuf")
+	assert.Equal(t, "bytes", protobufName)
+
+	// Test with non-existent tag
+	defaultName := getErrorFieldName(protobufField, "xml")
+	assert.Equal(t, "ProtobufField", defaultName)
+}
+
+func TestValidateStruct_DeepNesting(t *testing.T) {
+	type Level3 struct {
+		Value string
+	}
+	type Level2 struct {
+		L3 Level3
+	}
+	type Level1 struct {
+		L2 Level2
+	}
+
+	l1 := &Level1{
+		L2: Level2{
+			L3: Level3{Value: ""},
+		},
+	}
+
+	err := ValidateStructWithContext(context.Background(), l1,
+		FieldStruct(&l1.L2,
+			FieldStruct(&l1.L2.L3,
+				Field(&l1.L2.L3.Value, Required),
+			),
+		),
+	)
+
+	assert.EqualError(t, err, "L2: (L3: (Value: cannot be blank.).).")
+}
+
+func TestValidateStruct_MultipleErrors(t *testing.T) {
+	type TestStruct struct {
+		Field1 string
+		Field2 string
+		Field3 string
+	}
+
+	ts := &TestStruct{}
+
+	err := ValidateStructWithContext(context.Background(), ts,
+		Field(&ts.Field1, Required),
+		Field(&ts.Field2, Required),
+		Field(&ts.Field3, Required),
+	)
+
+	assert.Error(t, err)
+	errs, ok := err.(Errors)
+	assert.True(t, ok)
+	assert.Len(t, errs, 3)
+	assert.Contains(t, errs, "Field1")
+	assert.Contains(t, errs, "Field2")
+	assert.Contains(t, errs, "Field3")
+}
+
+func TestValidateStruct_AnonymousStructMergeErrors(t *testing.T) {
+	type Base struct {
+		BaseField string
+	}
+	type Extended struct {
+		Base
+		ExtendedField string
+	}
+
+	ext := &Extended{}
+
+	err := ValidateStructWithContext(context.Background(), ext,
+		Field(&ext.BaseField, Required),
+		Field(&ext.ExtendedField, Required),
+	)
+
+	assert.Error(t, err)
+	errs, ok := err.(Errors)
+	assert.True(t, ok)
+	// Both errors should be at the top level due to anonymous field
+	assert.Contains(t, errs, "BaseField")
+	assert.Contains(t, errs, "ExtendedField")
+}
+
+func TestFieldStruct_WithPointerField(t *testing.T) {
+	type Inner struct {
+		Value string
+	}
+	type Outer struct {
+		InnerPtr *Inner
+	}
+
+	outer := &Outer{
+		InnerPtr: &Inner{Value: "test"},
+	}
+
+	// Using Field with a pointer struct - should validate the pointer itself
+	err := ValidateStructWithContext(context.Background(), outer,
+		Field(&outer.InnerPtr, NotNil),
+	)
+
+	assert.NoError(t, err)
+
+	// Test with nil pointer
+	outer2 := &Outer{
+		InnerPtr: nil,
+	}
+
+	err = ValidateStructWithContext(context.Background(), outer2,
+		Field(&outer2.InnerPtr, NotNil),
+	)
+
+	assert.EqualError(t, err, "InnerPtr: is required.")
+}
+
+func TestValidateStruct_NilContext(t *testing.T) {
+	type TestStruct struct {
+		Name string
+	}
+
+	ts := &TestStruct{Name: "test"}
+
+	err := ValidateStructWithContext(nil, ts,
+		Field(&ts.Name, Required),
+	)
+
+	assert.NoError(t, err)
+}
+
+func TestValidateStruct_WithContextValue(t *testing.T) {
+	type TestStruct struct {
+		Name string
+	}
+
+	type ctxKey string
+	key := ctxKey("testKey")
+
+	ts := &TestStruct{Name: "test"}
+
+	customRule := By(func(ctx context.Context, value interface{}) error {
+		if ctx.Value(key) == nil {
+			return errors.New("context value not found")
+		}
+		return nil
+	})
+
+	ctx := context.WithValue(context.Background(), key, "testValue")
+
+	err := ValidateStructWithContext(ctx, ts,
+		Field(&ts.Name, customRule),
+	)
+
+	assert.NoError(t, err)
+}
+
+func TestErrFieldPointer_Error(t *testing.T) {
+	err := ErrFieldPointer(5)
+	assert.Equal(t, "field #5 must be specified as a pointer", err.Error())
+}
+
+func TestErrFieldNotFound_Error(t *testing.T) {
+	err := ErrFieldNotFound(3)
+	assert.Equal(t, "field #3 cannot be found in the struct", err.Error())
 }

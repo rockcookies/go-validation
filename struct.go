@@ -24,6 +24,8 @@ type (
 
 	// FieldRules represents a rule set associated with a struct field.
 	FieldRules struct {
+		name             string
+		isNamedField     bool
 		fieldPtr         interface{}
 		rules            []Rule
 		validatePtrValue bool
@@ -63,13 +65,33 @@ func ValidateStructWithContext(ctx context.Context, structPtr interface{}, field
 	errs := Errors{}
 
 	for i, fr := range fields {
-		fv := reflect.ValueOf(fr.fieldPtr)
-		if fv.Kind() != reflect.Ptr {
-			return NewInternalError(ErrFieldPointer(i))
-		}
-		ft := findStructField(value, fv)
-		if ft == nil {
-			return NewInternalError(ErrFieldNotFound(i))
+		var fv reflect.Value
+		var ft *reflect.StructField
+
+		if fr.isNamedField {
+			var ok bool
+			fv, ft, ok = getOpts(ctx).findStructFieldByNameFunc(value, fr.name)
+			if !ok {
+				return NewInternalError(ErrFieldNotFound(i))
+			}
+
+			if fv.Kind() != reflect.Ptr {
+				if fv.CanAddr() {
+					fv = fv.Addr()
+				} else {
+					return NewInternalError(ErrFieldPointer(i))
+				}
+			}
+		} else {
+			fv = reflect.ValueOf(fr.fieldPtr)
+			if fv.Kind() != reflect.Ptr {
+				return NewInternalError(ErrFieldPointer(i))
+			}
+
+			ft = findStructField(value, fv)
+			if ft == nil {
+				return NewInternalError(ErrFieldNotFound(i))
+			}
 		}
 
 		var validateValue interface{}
@@ -102,12 +124,49 @@ func ValidateStructWithContext(ctx context.Context, structPtr interface{}, field
 	return nil
 }
 
+// NamedField specifies a named field and the corresponding validation rules.
+func NamedField(name string, rules ...Rule) *FieldRules {
+	return &FieldRules{
+		name:         name,
+		isNamedField: true,
+		rules:        rules,
+	}
+}
+
 // Field specifies a struct field and the corresponding validation rules.
 // The struct field must be specified as a pointer to it.
 func Field(fieldPtr interface{}, rules ...Rule) *FieldRules {
 	return &FieldRules{
 		fieldPtr: fieldPtr,
 		rules:    rules,
+	}
+}
+
+// NamedStructField specifies a named struct field and the corresponding validation field rules.
+// example,
+//
+//	value := struct {
+//		NestedStruct struct {
+//		  Name string
+//	  }
+//	}{NestedStruct: struct{Name string}{}}
+//	err := validation.ValidateStruct(
+//	  &value,
+//		validation.NamedStructField(
+//	    "nestedStruct",
+//	    validation.Field(&value.NestedStruct.Name, validation.Required),
+//	  ),
+//	)
+func NamedStructField(name string, fields ...*FieldRules) *FieldRules {
+	return &FieldRules{
+		name:         name,
+		isNamedField: true,
+		rules: []Rule{&inlineRule{
+			f: func(ctx context.Context, value interface{}) error {
+				return ValidateStructWithContext(ctx, value, fields...)
+			},
+		}},
+		validatePtrValue: true,
 	}
 }
 
@@ -162,6 +221,24 @@ func ErrorFieldName(structPtr interface{}, fieldPtr interface{}, tagName string)
 		return "", NewInternalError(ErrFieldNotFound(0))
 	}
 	return getErrorFieldName(ft, tagName), nil
+}
+
+func DefaultFindStructFieldByName(structValue reflect.Value, name string) (reflect.Value, *reflect.StructField, bool) {
+	if len(name) == 0 {
+		return reflect.Value{}, nil, false
+	}
+
+	if name[0] >= 'a' && name[0] <= 'z' {
+		name = strings.ToUpper(name[:1]) + name[1:]
+	}
+
+	fv := structValue.FieldByName(name)
+	if fv.IsValid() {
+		ft, _ := structValue.Type().FieldByName(name)
+		return fv, &ft, true
+	}
+
+	return reflect.Value{}, nil, false
 }
 
 // findStructField looks for a field in the given struct.

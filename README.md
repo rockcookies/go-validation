@@ -19,8 +19,10 @@ validation is a Go package that provides configurable and extensible data valida
 It has the following features:
 
 * use normal programming constructs rather than error-prone struct tags to specify how data should be validated.
+* **context-aware validation**: all validation is performed with `context.Context` support for better control flow and cancellation.
 * can validate data of different types, e.g., structs, strings, byte slices, slices, maps, arrays.
 * can validate custom data types as long as they implement the `Validatable` interface.
+* **customizable options**: configure error field name resolvers, struct field name finders, and value extractors via context.
 * can validate data types that implement the `sql.Valuer` interface (e.g. `sql.NullString`).
 * customizable and well-formatted validation errors.
 * error code and message translation support.
@@ -31,13 +33,16 @@ For an example on how this library is used in an application, please refer to [g
 
 ## Requirements
 
-Go 1.16 or above.
+Go 1.20 or above.
 
 ## Getting Started
 
-The validation package mainly includes a set of validation rules and two validation methods. You use
-validation rules to describe how a value should be considered valid, and you call either `validation.Validate()`
-or `validation.ValidateStruct()` to validate the value.
+The validation package mainly includes a set of validation rules and validation methods. You use
+validation rules to describe how a value should be considered valid, and you call `validation.ValidateWithContext()`
+or `validation.ValidateStructWithContext()` to validate the value with context support.
+
+> **Note**: All validation in this library is context-aware. The `Validate()` and `ValidateStruct()` methods
+> from the original ozzo-validation have been replaced with `ValidateWithContext()` and `ValidateStructWithContext()`.
 
 ### Installation
 
@@ -49,12 +54,13 @@ go get github.com/rockcookies/go-validation
 
 ### Validating a Simple Value
 
-For a simple value, such as a string or an integer, you may use `validation.Validate()` to validate it. For example,
+For a simple value, such as a string or an integer, you may use `validation.ValidateWithContext()` to validate it. For example,
 
 ```go
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/rockcookies/go-validation"
@@ -63,7 +69,7 @@ import (
 
 func main() {
 	data := "example"
-	err := validation.Validate(data,
+	err := validation.ValidateWithContext(context.Background(), data,
 		validation.Required,       // not empty
 		validation.Length(5, 100), // length between 5 and 100
 		is.URL,                    // is a valid URL
@@ -74,7 +80,7 @@ func main() {
 }
 ```
 
-The method `validation.Validate()` will run through the rules in the order that they are listed. If a rule fails
+The method `validation.ValidateWithContext()` will run through the rules in the order that they are listed. If a rule fails
 the validation, the method will return the corresponding error and skip the rest of the rules. The method will
 return nil if the value passes all validation rules.
 
@@ -82,7 +88,7 @@ return nil if the value passes all validation rules.
 
 For a struct value, you usually want to check if its fields are valid. For example, in a RESTful application, you
 may unmarshal the request payload into a struct and then validate the struct fields. If one or multiple fields
-are invalid, you may want to get an error describing which fields are invalid. You can use `validation.ValidateStruct()`
+are invalid, you may want to get an error describing which fields are invalid. You can use `validation.ValidateStructWithContext()`
 to achieve this purpose. A single struct can have rules for multiple fields, and a field can be associated with multiple
 rules. For example,
 
@@ -92,48 +98,86 @@ type Address struct {
 	City   string
 	State  string
 	Zip    string
-  User struct {
-    Name string
-  }
+	User   struct {
+		Name string
+	}
 }
 
-func (a Address) Validate() error {
-	return validation.ValidateStruct(&a,
+func (a Address) Validate(ctx context.Context) error {
+	return validation.ValidateStructWithContext(ctx, &a,
 		// Street cannot be empty, and the length must between 5 and 50
 		validation.Field(&a.Street, validation.Required, validation.Length(5, 50)),
 		// City cannot be empty, and the length must between 5 and 50
 		validation.Field(&a.City, validation.Required, validation.Length(5, 50)),
 		// State cannot be empty, and must be a string consisting of two letters in upper case
 		validation.Field(&a.State, validation.Required, validation.Match(regexp.MustCompile("^[A-Z]{2}$"))),
-		// State cannot be empty, and must be a string consisting of five digits
+		// Zip cannot be empty, and must be a string consisting of five digits
 		validation.Field(&a.Zip, validation.Required, validation.Match(regexp.MustCompile("^[0-9]{5}$"))),
 		// User.Name cannot be empty, and the length must between 5 and 50
-		validation.FieldStruct(
-      &a.User, validation.Field(&a.User.Name, validation.Required, validation.Length(5, 50)),
-    ),
+		validation.FieldStruct(&a.User,
+			validation.Field(&a.User.Name, validation.Required, validation.Length(5, 50)),
+		),
 	)
 }
 
 a := Address{
-    Street: "123",
-    City:   "Unknown",
-    State:  "Virginia",
-    Zip:    "12345",
+	Street: "123",
+	City:   "Unknown",
+	State:  "Virginia",
+	Zip:    "12345",
 }
 
-err := a.Validate()
+err := a.Validate(context.Background())
 fmt.Println(err)
 // Output:
 // Street: the length must be between 5 and 50; State: must be in a valid format.
 ```
 
-Note that when calling `validation.ValidateStruct` to validate a struct, you should pass to the method a pointer
+Note that when calling `validation.ValidateStructWithContext` to validate a struct, you should pass to the method a pointer
 to the struct instead of the struct itself. Similarly, when calling `validation.Field` to specify the rules
 for a struct field, you should use a pointer to the struct field.
 
-When the struct validation is performed, the fields are validated in the order they are specified in `ValidateStruct`.
+When the struct validation is performed, the fields are validated in the order they are specified in `ValidateStructWithContext`.
 And when each field is validated, its rules are also evaluated in the order they are associated with the field.
 If a rule fails, an error is recorded for that field, and the validation will continue with the next field.
+
+### Named Fields
+
+In addition to `validation.Field()`, you can use `validation.NamedField()` to specify fields by name rather than by pointer.
+This is useful when you want to avoid using field pointers or when working with dynamic field names:
+
+```go
+type User struct {
+	Name  string
+	Email string
+	Age   int
+}
+
+func (u User) Validate(ctx context.Context) error {
+	return validation.ValidateStructWithContext(ctx, &u,
+		validation.NamedField("Name", validation.Required, validation.Length(5, 50)),
+		validation.NamedField("Email", validation.Required, is.Email),
+		validation.NamedField("age", validation.Required), // lowercase will be auto-capitalized to "Age"
+	)
+}
+```
+
+Similarly, `validation.NamedStructField()` allows you to validate nested structs by field name:
+
+```go
+type Company struct {
+	Address Address
+}
+
+func (c Company) Validate(ctx context.Context) error {
+	return validation.ValidateStructWithContext(ctx, &c,
+		validation.NamedStructField("Address",
+			validation.NamedField("Street", validation.Required),
+			validation.NamedField("City", validation.Required),
+		),
+	)
+}
+```
 
 ### Validating a Map
 
@@ -153,7 +197,7 @@ c := map[string]interface{}{
 	},
 }
 
-err := validation.Validate(c,
+err := validation.ValidateWithContext(context.Background(), c,
 	validation.Map(
 		// Name cannot be empty, and the length must be between 5 and 20.
 		validation.Key("Name", validation.Required, validation.Length(5, 20)),
@@ -183,7 +227,7 @@ If a rule fails, an error is recorded for that key, and the validation will cont
 
 ### Validation Errors
 
-The `validation.ValidateStruct` method returns validation errors found in struct fields in terms of `validation.Errors`
+The `validation.ValidateStructWithContext` method returns validation errors found in struct fields in terms of `validation.Errors`
 which is a map of fields and their corresponding errors. Nil is returned if validation passes.
 
 By default, `validation.Errors` uses the struct tags named `json` to determine what names should be used to
@@ -200,16 +244,27 @@ type Address struct {
 
 // ...perform validation here...
 
-err := a.Validate()
+err := a.Validate(context.Background())
 b, _ := json.Marshal(err)
 fmt.Println(string(b))
 // Output:
 // {"street":"the length must be between 5 and 50","state":"must be in a valid format"}
 ```
 
-You may modify `validation.ErrorTag` to use a different struct tag name.
+You can customize which struct tag to use for error field names by providing a custom `GetErrorFieldNameFunc` via context options:
 
-If you do not like the magic that `ValidateStruct` determines error keys based on struct field names or corresponding
+```go
+ctx := validation.WithOptions(context.Background(),
+	validation.WithGetErrorFieldNameFunc(func(f *reflect.StructField) string {
+		if tag := f.Tag.Get("validate"); tag != "" {
+			return tag
+		}
+		return f.Name
+	}),
+)
+```
+
+If you do not like the magic that `ValidateStructWithContext` determines error keys based on struct field names or corresponding
 tag values, you may use the following alternative approach:
 
 ```go
@@ -221,10 +276,11 @@ c := Customer{
 	},
 }
 
+ctx := context.Background()
 err := validation.Errors{
-	"name": validation.Validate(c.Name, validation.Required, validation.Length(5, 20)),
-	"email": validation.Validate(c.Name, validation.Required, is.Email),
-	"zip": validation.Validate(c.Address.Zip, validation.Required, validation.Match(regexp.MustCompile("^[0-9]{5}$"))),
+	"name": validation.ValidateWithContext(ctx, c.Name, validation.Required, validation.Length(5, 20)),
+	"email": validation.ValidateWithContext(ctx, c.Email, validation.Required, is.Email),
+	"zip": validation.ValidateWithContext(ctx, c.Address.Zip, validation.Required, validation.Match(regexp.MustCompile("^[0-9]{5}$"))),
 }.Filter()
 fmt.Println(err)
 // Output:
@@ -236,8 +292,8 @@ At the end we call `Errors.Filter()` to remove from `Errors` all nils which corr
 results. The method will return nil if `Errors` is empty.
 
 The above approach is very flexible as it allows you to freely build up your validation error structure. You can use
-it to validate both struct and non-struct values. Compared to using `ValidateStruct` to validate a struct,
-it has the drawback that you have to redundantly specify the error keys while `ValidateStruct` can automatically
+it to validate both struct and non-struct values. Compared to using `ValidateStructWithContext` to validate a struct,
+it has the drawback that you have to redundantly specify the error keys while `ValidateStructWithContext` can automatically
 find them out.
 
 ### Internal Errors
@@ -253,7 +309,7 @@ into `validation.InternalError` by calling `validation.NewInternalError()`. The 
 if a returned error is an internal error or not. For example,
 
 ```go
-if err := a.Validate(); err != nil {
+if err := a.Validate(context.Background()); err != nil {
 	if e, ok := err.(validation.InternalError); ok {
 		// an internal error happened
 		fmt.Println(e.InternalError())
@@ -263,21 +319,30 @@ if err := a.Validate(); err != nil {
 
 ## Validatable Types
 
-A type is validatable if it implements the `validation.Validatable` interface.
+A type is validatable if it implements the `validation.Validatable` interface:
 
-When `validation.Validate` is used to validate a validatable value, if it does not find any error with the
-given validation rules, it will further call the value's `Validate()` method.
+```go
+type Validatable interface {
+	Validate(ctx context.Context) error
+}
+```
 
-Similarly, when `validation.ValidateStruct` is validating a struct field whose type is validatable, it will call
+When `validation.ValidateWithContext` is used to validate a validatable value, if it does not find any error with the
+given validation rules, it will further call the value's `Validate()` method with the provided context.
+
+Similarly, when `validation.ValidateStructWithContext` is validating a struct field whose type is validatable, it will call
 the field's `Validate` method after it passes the listed rules.
 
-> Note: When implementing `validation.Validatable`, do not call `validation.Validate()` to validate the value in its
+> **Note**: Unlike the original ozzo-validation, this library only supports the context-aware `Validatable` interface.
+> The non-context `Validatable` interface is not supported.
+
+> **Note**: When implementing `validation.Validatable`, do not call `validation.ValidateWithContext()` to validate the value in its
 > original type because this will cause infinite loops. For example, if you define a new type `MyString` as `string`
 > and implement `validation.Validatable` for `MyString`, within the `Validate()` function you should cast the value
-> to `string` first before calling `validation.Validate()` to validate it.
+> to `string` first before calling `validation.ValidateWithContext()` to validate it.
 
 In the following example, the `Address` field of `Customer` is validatable because `Address` implements
-`validation.Validatable`. Therefore, when validating a `Customer` struct with `validation.ValidateStruct`,
+`validation.Validatable`. Therefore, when validating a `Customer` struct with `validation.ValidateStructWithContext`,
 validation will "dive" into the `Address` field.
 
 ```go
@@ -288,8 +353,8 @@ type Customer struct {
 	Address Address
 }
 
-func (c Customer) Validate() error {
-	return validation.ValidateStruct(&c,
+func (c Customer) Validate(ctx context.Context) error {
+	return validation.ValidateStructWithContext(ctx, &c,
 		// Name cannot be empty, and the length must be between 5 and 20.
 		validation.Field(&c.Name, validation.Required, validation.Length(5, 20)),
 		// Gender is optional, and should be either "Female" or "Male".
@@ -312,7 +377,7 @@ c := Customer{
 	},
 }
 
-err := c.Validate()
+err := c.Validate(context.Background())
 fmt.Println(err)
 // Output:
 // Address: (State: must be in a valid format.); Email: must be a valid email address.
@@ -324,7 +389,7 @@ a `validation.Skip` rule with the value being validated.
 ### Maps/Slices/Arrays of Validatables
 
 When validating an iterable (map, slice, or array), whose element type implements the `validation.Validatable` interface,
-the `validation.Validate` method will call the `Validate` method of every non-nil element.
+the `validation.ValidateWithContext` method will call the `Validate` method of every non-nil element.
 The validation errors of the elements will be returned as `validation.Errors` which maps the keys of the
 invalid elements to their corresponding validation errors. For example,
 
@@ -334,13 +399,13 @@ addresses := []Address{
 	Address{Street: "123 Main St", City: "Vienna", State: "VA", Zip: "12345"},
 	Address{City: "Unknown", State: "NC", Zip: "123"},
 }
-err := validation.Validate(addresses)
+err := validation.ValidateWithContext(context.Background(), addresses)
 fmt.Println(err)
 // Output:
 // 0: (City: cannot be blank; Street: cannot be blank.); 2: (Street: cannot be blank; Zip: must be in a valid format.).
 ```
 
-When using `validation.ValidateStruct` to validate a struct, the above validation procedure also applies to those struct
+When using `validation.ValidateStructWithContext` to validate a struct, the above validation procedure also applies to those struct
 fields which are map/slices/arrays of validatables.
 
 #### Each
@@ -349,28 +414,28 @@ The `Each` validation rule allows you to apply a set of rules to each element of
 
 ```go
 type Customer struct {
-    Name      string
-    Emails    []string
+	Name   string
+	Emails []string
 }
 
-func (c Customer) Validate() error {
-    return validation.ValidateStruct(&c,
-        // Name cannot be empty, and the length must be between 5 and 20.
+func (c Customer) Validate(ctx context.Context) error {
+	return validation.ValidateStructWithContext(ctx, &c,
+		// Name cannot be empty, and the length must be between 5 and 20.
 		validation.Field(&c.Name, validation.Required, validation.Length(5, 20)),
 		// Emails are optional, but if given must be valid.
 		validation.Field(&c.Emails, validation.Each(is.Email)),
-    )
+	)
 }
 
 c := Customer{
-    Name:   "Qiang Xue",
-    Emails: []Email{
-        "valid@example.com",
-        "invalid",
-    },
+	Name:   "Qiang Xue",
+	Emails: []string{
+		"valid@example.com",
+		"invalid",
+	},
 }
 
-err := c.Validate()
+err := c.Validate(context.Background())
 fmt.Println(err)
 // Output:
 // Emails: (1: must be a valid email address.).
@@ -390,9 +455,22 @@ If a data type implements the `sql.Valuer` interface (e.g. `sql.NullString`), th
 it properly. In particular, when a rule is validating such data, it will call the `Value()` method and validate
 the returned value instead.
 
-Note that for this to work,
-`validation.SetValuerProxy(validation.DefaultValuerProxy)` needs to be called
-before executing any validation functions.
+You can customize the value extraction logic by providing a custom `ValuerFunc` via context options:
+
+```go
+ctx := validation.WithOptions(context.Background(),
+	validation.WithValuerFunc(func(value any) (any, bool) {
+		// Custom logic to extract the value
+		if v, ok := value.(sql.Valuer); ok {
+			val, err := v.Value()
+			if err == nil {
+				return val, true
+			}
+		}
+		return value, false
+	}),
+)
+```
 
 ### Required vs. Not Nil
 
@@ -407,7 +485,7 @@ You can use the `validation.NotNil` rule to ensure a value is entered (even if i
 
 ### Embedded Structs
 
-The `validation.ValidateStruct` method will properly validate a struct that contains embedded structs. In particular,
+The `validation.ValidateStructWithContext` method will properly validate a struct that contains embedded structs. In particular,
 the fields of an embedded struct are treated as if they belong directly to the containing struct. For example,
 
 ```go
@@ -421,7 +499,7 @@ type Manager struct {
 }
 
 m := Manager{}
-err := validation.ValidateStruct(&m,
+err := validation.ValidateStructWithContext(context.Background(), &m,
 	validation.Field(&m.Name, validation.Required),
 	validation.Field(&m.Level, validation.Required),
 )
@@ -438,13 +516,13 @@ If `Employee` implements the `validation.Validatable` interface, we can also use
 `Manager`, which generates the same validation result:
 
 ```go
-func (e Employee) Validate() error {
-	return validation.ValidateStruct(&e,
+func (e Employee) Validate(ctx context.Context) error {
+	return validation.ValidateStructWithContext(ctx, &e,
 		validation.Field(&e.Name, validation.Required),
 	)
 }
 
-err := validation.ValidateStruct(&m,
+err := validation.ValidateStructWithContext(context.Background(), &m,
 	validation.Field(&m.Employee),
 	validation.Field(&m.Level, validation.Required),
 )
@@ -461,10 +539,11 @@ or `phone` is provided. The so-called conditional validation can be achieved wit
 The following code implements the aforementioned examples:
 
 ```go
-result := validation.ValidateStruct(&a,
-    validation.Field(&a.Unit, validation.When(a.Quantity != "", validation.Required).Else(validation.Nil)),
-    validation.Field(&a.Phone, validation.When(a.Email == "", validation.Required.Error("Either phone or Email is required.")),
-    validation.Field(&a.Email, validation.When(a.Phone == "", validation.Required.Error("Either phone or Email is required.")),
+ctx := context.Background()
+result := validation.ValidateStructWithContext(ctx, &a,
+	validation.Field(&a.Unit, validation.When(a.Quantity != "", validation.Required).Else(validation.Nil)),
+	validation.Field(&a.Phone, validation.When(a.Email == "", validation.Required.Error("Either phone or Email is required."))),
+	validation.Field(&a.Email, validation.When(a.Phone == "", validation.Required.Error("Either phone or Email is required."))),
 )
 ```
 
@@ -473,10 +552,11 @@ Note that `validation.When` and `validation.When.Else` can take a list of valida
 The above code can also be simplified using the shortcut `validation.Required.When`:
 
 ```go
-result := validation.ValidateStruct(&a,
-    validation.Field(&a.Unit, validation.Required.When(a.Quantity != ""), validation.Nil.When(a.Quantity == "")),
-    validation.Field(&a.Phone, validation.Required.When(a.Email == "").Error("Either phone or Email is required.")),
-    validation.Field(&a.Email, validation.Required.When(a.Phone == "").Error("Either phone or Email is required.")),
+ctx := context.Background()
+result := validation.ValidateStructWithContext(ctx, &a,
+	validation.Field(&a.Unit, validation.Required.When(a.Quantity != ""), validation.Nil.When(a.Quantity == "")),
+	validation.Field(&a.Phone, validation.Required.When(a.Email == "").Error("Either phone or Email is required.")),
+	validation.Field(&a.Email, validation.Required.When(a.Phone == "").Error("Either phone or Email is required.")),
 )
 ```
 
@@ -487,7 +567,7 @@ of the rules. For example,
 
 ```go
 data := "2123"
-err := validation.Validate(data,
+err := validation.ValidateWithContext(context.Background(), data,
 	validation.Required.Error("is required"),
 	validation.Match(regexp.MustCompile("^[0-9]{5}$")).Error("must be a string with five digits"),
 )
@@ -519,15 +599,17 @@ Creating a custom rule is as simple as implementing the `validation.Rule` interf
 method as shown below, which should validate the value and return the validation error, if any:
 
 ```go
-// Validate validates a value and returns an error if validation fails.
-Validate(value interface{}) error
+// Rule represents a validation rule.
+type Rule interface {
+	Validate(ctx context.Context, value interface{}) error
+}
 ```
 
 If you already have a function with the same signature as shown above, you can call `validation.By()` to turn
 it into a validation rule. For example,
 
 ```go
-func checkAbc(value interface{}) error {
+func checkAbc(ctx context.Context, value interface{}) error {
 	s, _ := value.(string)
 	if s != "abc" {
 		return errors.New("must be abc")
@@ -535,7 +617,7 @@ func checkAbc(value interface{}) error {
 	return nil
 }
 
-err := validation.Validate("xyz", validation.By(checkAbc))
+err := validation.ValidateWithContext(context.Background(), "xyz", validation.By(checkAbc))
 fmt.Println(err)
 // Output: must be abc
 ```
@@ -544,16 +626,16 @@ If your validation function takes additional parameters, you can use the followi
 
 ```go
 func stringEquals(str string) validation.RuleFunc {
-	return func(value interface{}) error {
+	return func(ctx context.Context, value interface{}) error {
 		s, _ := value.(string)
-        if s != str {
-            return errors.New("unexpected string")
-        }
-        return nil
-    }
+		if s != str {
+			return errors.New("unexpected string")
+		}
+		return nil
+	}
 }
 
-err := validation.Validate("xyz", validation.By(stringEquals("abc")))
+err := validation.ValidateWithContext(context.Background(), "xyz", validation.By(stringEquals("abc")))
 fmt.Println(err)
 // Output: unexpected string
 ```
@@ -574,8 +656,8 @@ type User struct {
 	LastName  string
 }
 
-func (u User) Validate() error {
-	return validation.ValidateStruct(&u,
+func (u User) Validate(ctx context.Context) error {
+	return validation.ValidateStructWithContext(ctx, &u,
 		validation.Field(&u.FirstName, NameRule...),
 		validation.Field(&u.LastName, NameRule...),
 	)
@@ -587,33 +669,58 @@ group to validate both `FirstName` and `LastName`.
 
 ## Context-aware Validation
 
-While most validation rules are self-contained, some rules may depend dynamically on a context. A rule may implement the
-`validation.RuleWithContext` interface to support the so-called context-aware validation.
+All validation in this library is context-aware. Every validation method accepts a `context.Context` parameter,
+which allows you to:
 
-To validate an arbitrary value with a context, call `validation.ValidateWithContext()`. The `context.Conext` parameter
-will be passed along to those rules that implement `validation.RuleWithContext`.
+1. **Pass contextual information** through the validation chain
+2. **Control cancellation** of long-running validations
+3. **Customize behavior** via context options
 
-To validate the fields of a struct with a context, call `validation.ValidateStructWithContext()`.
+### Context Options
 
-You can define a context-aware rule from scratch by implementing both `validation.Rule` and `validation.RuleWithContext`.
-You can also use `validation.WithContext()` to turn a function into a context-aware rule. For example,
+You can customize validation behavior by providing options through the context:
 
 ```go
-rule := validation.WithContext(func(ctx context.Context, value interface{}) error {
-	if ctx.Value("secret") == value.(string) {
-	    return nil
+ctx := validation.WithOptions(context.Background(),
+	// Customize how field names are extracted for error messages
+	validation.WithGetErrorFieldNameFunc(func(f *reflect.StructField) string {
+		if tag := f.Tag.Get("validate"); tag != "" {
+			return tag
+		}
+		return f.Name
+	}),
+	// Customize how struct fields are found by name
+	validation.WithFindStructFieldByNameFunc(func(structValue reflect.Value, name string) (reflect.Value, *reflect.StructField, bool) {
+		// Custom field lookup logic
+		return validation.DefaultFindStructFieldByName(structValue, name)
+	}),
+	// Customize how values are extracted (e.g., for sql.Valuer)
+	validation.WithValuerFunc(func(value any) (any, bool) {
+		// Custom value extraction logic
+		return validation.DefaultValuer(value)
+	}),
+)
+
+err := validation.ValidateStructWithContext(ctx, &myStruct, ...)
+```
+
+### Using Context Values
+
+You can pass custom values through the context for use in your validation rules:
+
+```go
+rule := validation.By(func(ctx context.Context, value interface{}) error {
+	if secret := ctx.Value("secret"); secret == value.(string) {
+		return nil
 	}
 	return errors.New("value incorrect")
 })
-value := "xyz"
+
 ctx := context.WithValue(context.Background(), "secret", "example")
-err := validation.ValidateWithContext(ctx, value, rule)
+err := validation.ValidateWithContext(ctx, "xyz", rule)
 fmt.Println(err)
 // Output: value incorrect
 ```
-
-When performing context-aware validation, if a rule does not implement `validation.RuleWithContext`, its
-`validation.Rule` will be used instead.
 
 ## Built-in Validation Rules
 
