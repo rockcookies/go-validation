@@ -5,6 +5,7 @@
 package validation
 
 import (
+	"context"
 	"time"
 )
 
@@ -80,7 +81,12 @@ func (r DateRule) Max(max time.Time) DateRule {
 
 // Validate checks if the given value is a valid date.
 func (r DateRule) Validate(value interface{}) error {
-	value, isNil := Indirect(value)
+	return r.ValidateWithContext(context.Background(), value)
+}
+
+// ValidateWithContext checks if the given value is a valid date.
+func (r DateRule) ValidateWithContext(ctx context.Context, value interface{}) error {
+	value, isNil := indirectWithOptions(value, GetOptions(ctx))
 	if isNil || IsEmpty(value) {
 		return nil
 	}

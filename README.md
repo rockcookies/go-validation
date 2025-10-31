@@ -1,15 +1,18 @@
-# validation
+# Go Validation
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/rockcookies/go-validation.svg)](https://pkg.go.dev/github.com/rockcookies/go-validation)
-[![Build Status](https://github.com/rockcookies/go-validation/actions/workflows/go.yml/badge.svg)](https://github.com/rockcookies/go-validation/actions/workflows/go.yml)
-[![Coverage Status](https://coveralls.io/repos/github/rockcookies/go-validation/badge.svg?branch=master)](https://coveralls.io/github/rockcookies/go-validation?branch=master)
-[![Go Report Card](https://goreportcard.com/badge/github.com/rockcookies/go-validation)](https://goreportcard.com/report/github.com/rockcookies/go-validation)
+[![Lint](https://github.com/rockcookies/go-validation/actions/workflows/lint.yaml/badge.svg)](https://github.com/rockcookies/go-validation/actions/workflows/lint.yaml)
+[![Test Go](https://github.com/rockcookies/go-validation/actions/workflows/test.yaml/badge.svg)](https://github.com/rockcookies/go-validation/actions/workflows/test.yaml)
+[![GoDoc](https://godoc.org/github.com/rockcookies/go-validation?status.png)](http://godoc.org/github.com/rockcookies/go-validation)
+[![Coverage Status](https://codecov.io/gh/rockcookies/go-validation/graph/badge.svg?token=Q3AEO8GZ8G)](https://codecov.io/gh/rockcookies/go-validation)
+[![Go Report](https://goreportcard.com/badge/github.com/rockcookies/go-validation)](https://goreportcard.com/report/github.com/rockcookies/go-validation)
+![Latest Tag](https://img.shields.io/github/v/tag/rockcookies/go-validation)
+
+ThanksTo:
+- https://github.com/invopop/validation
+- https://github.com/jellydator/validation
+
 
 ## Description
-Thanks:
-https://github.com/invopop/validation
-https://github.com/rockcookies/go-validation
-
 This is an actively maintained fork of [ozzo-validation](https://github.com/go-ozzo/ozzo-validation).
 
 validation is a Go package that provides configurable and extensible data validation capabilities.

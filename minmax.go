@@ -5,6 +5,7 @@
 package validation
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"time"
@@ -76,7 +77,12 @@ func (r ThresholdRule) CmpFunc(fn CmpFunc) ThresholdRule {
 
 // Validate checks if the given value is valid or not.
 func (r ThresholdRule) Validate(value interface{}) error {
-	value, isNil := Indirect(value)
+	return r.ValidateWithContext(context.Background(), value)
+}
+
+// ValidateWithContext checks if the given value is valid or not.
+func (r ThresholdRule) ValidateWithContext(ctx context.Context, value interface{}) error {
+	value, isNil := indirectWithOptions(value, GetOptions(ctx))
 	if isNil || IsEmpty(value) {
 		return nil
 	}

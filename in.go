@@ -5,6 +5,7 @@
 package validation
 
 import (
+	"context"
 	"reflect"
 )
 
@@ -30,7 +31,12 @@ type InRule[T any] struct {
 
 // Validate checks if the given value is valid or not.
 func (r InRule[T]) Validate(value interface{}) error {
-	value, isNil := Indirect(value)
+	return r.ValidateWithContext(context.Background(), value)
+}
+
+func (r InRule[T]) ValidateWithContext(ctx context.Context, value interface{}) error {
+	value, isNil := indirectWithOptions(value, GetOptions(ctx))
+
 	if isNil || IsEmpty(value) {
 		return nil
 	}

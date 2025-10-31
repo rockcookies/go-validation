@@ -4,6 +4,8 @@
 
 package validation
 
+import "context"
+
 type stringValidator func(string) bool
 
 // StringRule is a rule that checks a string variable using a specified stringValidator.
@@ -46,7 +48,12 @@ func (r StringRule) ErrorObject(err Error) StringRule {
 
 // Validate checks if the given value is valid or not.
 func (r StringRule) Validate(value interface{}) error {
-	value, isNil := Indirect(value)
+	return r.ValidateWithContext(context.Background(), value)
+}
+
+// ValidateWithContext checks if the given value is valid or not.
+func (r StringRule) ValidateWithContext(ctx context.Context, value interface{}) error {
+	value, isNil := indirectWithOptions(value, GetOptions(ctx))
 	if isNil || IsEmpty(value) {
 		return nil
 	}

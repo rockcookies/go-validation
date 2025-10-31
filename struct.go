@@ -12,12 +12,8 @@ import (
 	"strings"
 )
 
-var (
-	// ErrStructPointer is the error that a struct being validated is not specified as a pointer.
-	ErrStructPointer = errors.New("only a pointer to a struct can be validated")
-	// GetErrorFieldName is used to get the desired field name for a struct field, overriding the default getErrorFieldName
-	GetErrorFieldName func(f *reflect.StructField) string = getErrorFieldName
-)
+// ErrStructPointer is the error that a struct being validated is not specified as a pointer.
+var ErrStructPointer = errors.New("only a pointer to a struct can be validated")
 
 type (
 	// ErrFieldPointer is the error that a field is not specified as a pointer.
@@ -121,7 +117,7 @@ func ValidateStructWithContext(ctx context.Context, structPtr interface{}, field
 					continue
 				}
 			}
-			errs[GetErrorFieldName(ft)] = err
+			errs[getOpts(ctx).getErrorFieldNameFunc(ft)] = err
 		}
 	}
 
@@ -171,8 +167,8 @@ func FieldStruct(structPtr interface{}, fields ...*FieldRules) *FieldRules {
 	}
 }
 
-// ErrorFieldName gets the value of the ErrorTag for the given field in the given struct
-func ErrorFieldName(structPtr interface{}, fieldPtr interface{}) (string, error) {
+// ErrorFieldName returns the name resolved from tagName for the provided struct field pointer.
+func ErrorFieldName(structPtr interface{}, fieldPtr interface{}, tagName string) (string, error) {
 	value := reflect.ValueOf(structPtr)
 	if value.Kind() != reflect.Ptr || !value.IsNil() && value.Elem().Kind() != reflect.Struct {
 		// must be a pointer to a struct
@@ -193,7 +189,7 @@ func ErrorFieldName(structPtr interface{}, fieldPtr interface{}) (string, error)
 	if ft == nil {
 		return "", NewInternalError(ErrFieldNotFound(0))
 	}
-	return getErrorFieldName(ft), nil
+	return getErrorFieldName(ft, tagName), nil
 }
 
 // findStructField looks for a field in the given struct.
@@ -227,11 +223,15 @@ func findStructField(structValue reflect.Value, fieldValue reflect.Value) *refle
 }
 
 // getErrorFieldName returns the name that should be used to represent the validation error of a struct field.
-func getErrorFieldName(f *reflect.StructField) string {
-	if tag := f.Tag.Get(ErrorTag); tag != "" && tag != "-" {
+func getErrorFieldName(f *reflect.StructField, tagName string) string {
+	if tag := f.Tag.Get(tagName); tag != "" && tag != "-" {
 		if cps := strings.SplitN(tag, ",", 2); cps[0] != "" {
 			return cps[0]
 		}
 	}
 	return f.Name
+}
+
+func DefaultGetErrorFieldName(f *reflect.StructField) string {
+	return getErrorFieldName(f, "json")
 }

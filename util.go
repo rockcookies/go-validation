@@ -5,6 +5,7 @@
 package validation
 
 import (
+	"context"
 	"database/sql/driver"
 	"errors"
 	"fmt"
@@ -25,16 +26,8 @@ const (
 // CmpFunc is used to compare two values.
 type CmpFunc func(op CmpOperator, v1, v2 interface{}) bool
 
-// ValuerProxy is used to transform driver.Valuer values before
-// validating them.
-//
-// The input is the value to transform and the output is
-// the new value and a boolean indicating whether the value was
-// actually transformed.
-type ValuerProxy func(interface{}) (interface{}, bool)
-
-// DefaultValuerProxy is the default implementation of ValuerProxy.
-func DefaultValuerProxy(orig interface{}) (interface{}, bool) {
+// DefaultValuer is the default implementation of ValuerProxy.
+func DefaultValuer(orig interface{}) (interface{}, bool) {
 	if valuer, ok := orig.(driver.Valuer); ok {
 		if value, err := valuer.Value(); err == nil {
 			return value, true
@@ -43,10 +36,7 @@ func DefaultValuerProxy(orig interface{}) (interface{}, bool) {
 	return orig, false
 }
 
-var (
-	bytesType   = reflect.TypeOf([]byte(nil))
-	valuerProxy ValuerProxy
-)
+var bytesType = reflect.TypeOf([]byte(nil))
 
 // EnsureString ensures the given value is a string.
 // If the value is a byte slice, it will be typecast into a string.
@@ -150,6 +140,10 @@ func IsEmpty(value interface{}) bool {
 // the value is nil or not (only applicable to interface, pointer, map, and slice).
 // If the value is neither an interface nor a pointer, it will be returned back.
 func Indirect(value interface{}) (interface{}, bool) {
+	return indirectWithOptions(value, GetOptions(context.Background()))
+}
+
+func indirectWithOptions(value interface{}, opts Options) (interface{}, bool) {
 	rv := reflect.ValueOf(value)
 	kind := rv.Kind()
 	switch kind {
@@ -159,25 +153,18 @@ func Indirect(value interface{}) (interface{}, bool) {
 		if rv.IsNil() {
 			return nil, true
 		}
-		return Indirect(rv.Elem().Interface())
+		return indirectWithOptions(rv.Elem().Interface(), opts)
 	case reflect.Slice, reflect.Map, reflect.Func, reflect.Chan:
 		if rv.IsNil() {
 			return nil, true
 		}
 	}
 
-	if valuerProxy != nil {
+	if valuerProxy := opts.ValuerFunc(); valuerProxy != nil {
 		if val, ok := valuerProxy(value); ok {
-			return Indirect(val)
+			return indirectWithOptions(val, opts)
 		}
 	}
 
 	return value, false
-}
-
-// SetValuerProxy allows the global ValuerProxy to be updated.
-// If the value is nil, the global ValuerProxy is disabled.
-// The global ValuerProxy is nil by default.
-func SetValuerProxy(valuer ValuerProxy) {
-	valuerProxy = valuer
 }

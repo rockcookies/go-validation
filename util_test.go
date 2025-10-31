@@ -12,10 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func init() {
-	SetValuerProxy(DefaultValuerProxy)
-}
-
 func TestEnsureString(t *testing.T) {
 	str := "abc"
 	byteSlice := []byte("abc")

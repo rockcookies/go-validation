@@ -4,6 +4,8 @@
 
 package validation
 
+import "context"
+
 // ErrNotNilRequired is the error that returns when a value is Nil.
 var ErrNotNilRequired = NewError("validation_not_nil_required", "is required")
 
@@ -18,7 +20,12 @@ type notNilRule struct {
 
 // Validate checks if the given value is valid or not.
 func (r notNilRule) Validate(value interface{}) error {
-	_, isNil := Indirect(value)
+	return r.ValidateWithContext(context.Background(), value)
+}
+
+// ValidateWithContext checks if the given value is valid or not.
+func (r notNilRule) ValidateWithContext(ctx context.Context, value interface{}) error {
+	_, isNil := indirectWithOptions(value, GetOptions(ctx))
 	if isNil {
 		if r.err != nil {
 			return r.err

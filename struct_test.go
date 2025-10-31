@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -216,48 +215,19 @@ func TestValidateStructWithContext(t *testing.T) {
 func Test_getErrorFieldName(t *testing.T) {
 	var s1 Struct1
 	v1 := reflect.ValueOf(&s1).Elem()
+	tagName := "json"
 
 	sf1 := findStructField(v1, reflect.ValueOf(&s1.Field1))
 	assert.NotNil(t, sf1)
-	assert.Equal(t, "Field1", getErrorFieldName(sf1))
+	assert.Equal(t, "Field1", getErrorFieldName(sf1, tagName))
 
 	jsonField := findStructField(v1, reflect.ValueOf(&s1.JSONField))
 	assert.NotNil(t, jsonField)
-	assert.Equal(t, "some_json_field", getErrorFieldName(jsonField))
+	assert.Equal(t, "some_json_field", getErrorFieldName(jsonField, tagName))
 
 	jsonIgnoredField := findStructField(v1, reflect.ValueOf(&s1.JSONIgnoredField))
 	assert.NotNil(t, jsonIgnoredField)
-	assert.Equal(t, "JSONIgnoredField", getErrorFieldName(jsonIgnoredField))
-}
-
-func Test_GetErrorFieldName_Override(t *testing.T) {
-	// get the default so that we can revert when done with this test
-	origGetErrorFieldName := GetErrorFieldName
-	defer func() {
-		GetErrorFieldName = origGetErrorFieldName
-	}()
-
-	var s1 Struct1
-	v1 := reflect.ValueOf(&s1).Elem()
-
-	// custom GetErrorFieldName function to get field name from protocol buffer (proto3) json encoding
-	getErrorFieldNameFromProto3 := func(f *reflect.StructField) string {
-		if tag := f.Tag.Get("protobuf"); tag != "" && tag != "-" {
-			for _, v := range strings.Split(tag, ",") {
-				if vs := strings.Split(v, "="); len(vs) == 2 && vs[0] == "json" {
-					return vs[1]
-				}
-			}
-		}
-		return f.Name
-	}
-
-	//  override the default
-	GetErrorFieldName = getErrorFieldNameFromProto3
-
-	protobufField := findStructField(v1, reflect.ValueOf(&s1.ProtobufField))
-	assert.NotNil(t, protobufField)
-	assert.Equal(t, "someProtobufField", GetErrorFieldName(protobufField))
+	assert.Equal(t, "JSONIgnoredField", getErrorFieldName(jsonIgnoredField, tagName))
 }
 
 func TestErrorFieldName(t *testing.T) {
@@ -342,7 +312,7 @@ func TestErrorFieldName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.initFn(&tt)
-			got, err := ErrorFieldName(tt.args.structPtr, tt.args.fieldPtr)
+			got, err := ErrorFieldName(tt.args.structPtr, tt.args.fieldPtr, "json")
 			if !tt.wantErr(t, err, fmt.Sprintf("ErrorFieldName(%v, %v)", tt.args.structPtr, tt.args.fieldPtr)) {
 				return
 			}

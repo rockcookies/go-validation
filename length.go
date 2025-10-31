@@ -5,6 +5,7 @@
 package validation
 
 import (
+	"context"
 	"unicode/utf8"
 )
 
@@ -51,7 +52,12 @@ type LengthRule struct {
 
 // Validate checks if the given value is valid or not.
 func (r LengthRule) Validate(value interface{}) error {
-	value, isNil := Indirect(value)
+	return r.ValidateWithContext(context.Background(), value)
+}
+
+// ValidateWithContext checks if the given value is valid or not.
+func (r LengthRule) ValidateWithContext(ctx context.Context, value interface{}) error {
+	value, isNil := indirectWithOptions(value, GetOptions(ctx))
 	if isNil || IsEmpty(value) {
 		return nil
 	}

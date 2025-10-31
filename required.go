@@ -4,6 +4,8 @@
 
 package validation
 
+import "context"
+
 var (
 	// ErrRequired is the error that returns when a value is required.
 	ErrRequired = NewError("validation_required", "cannot be blank")
@@ -33,8 +35,13 @@ type RequiredRule struct {
 
 // Validate checks if the given value is valid or not.
 func (r RequiredRule) Validate(value interface{}) error {
+	return r.ValidateWithContext(context.Background(), value)
+}
+
+// ValidateWithContext checks if the given value is valid or not.
+func (r RequiredRule) ValidateWithContext(ctx context.Context, value interface{}) error {
 	if r.condition {
-		value, isNil := Indirect(value)
+		value, isNil := indirectWithOptions(value, GetOptions(ctx))
 		if r.skipNil && !isNil && IsEmpty(value) || !r.skipNil && (isNil || IsEmpty(value)) {
 			if r.err != nil {
 				return r.err
