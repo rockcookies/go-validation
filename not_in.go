@@ -9,6 +9,8 @@ import (
 	"reflect"
 )
 
+var _ Rule = (*NotInRule[any])(nil)
+
 // ErrNotInInvalid is the error that returns when a value is in a list.
 var ErrNotInInvalid = NewError("validation_not_in_invalid", "must not be in list")
 
@@ -29,12 +31,7 @@ type NotInRule[T any] struct {
 }
 
 // Validate checks if the given value is valid or not.
-func (r NotInRule[T]) Validate(value interface{}) error {
-	return r.ValidateWithContext(context.Background(), value)
-}
-
-// ValidateWithContext checks if the given value is valid or not.
-func (r NotInRule[T]) ValidateWithContext(ctx context.Context, value interface{}) error {
+func (r NotInRule[T]) Validate(ctx context.Context, value interface{}) error {
 	value, isNil := indirectWithOptions(value, GetOptions(ctx))
 	if isNil || IsEmpty(value) {
 		return nil

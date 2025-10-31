@@ -1,9 +1,12 @@
 package validation
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 )
+
+var _ Rule = (*MultipleOfRule)(nil)
 
 // ErrMultipleOfInvalid is the error that returns when a value is not multiple of a base.
 var ErrMultipleOfInvalid = NewError("validation_multiple_of_invalid", "must be multiple of {{.base}}")
@@ -36,7 +39,7 @@ func (r MultipleOfRule) ErrorObject(err Error) MultipleOfRule {
 }
 
 // Validate checks if the value is a multiple of the "base" value.
-func (r MultipleOfRule) Validate(value interface{}) error {
+func (r MultipleOfRule) Validate(ctx context.Context, value interface{}) error {
 	rv := reflect.ValueOf(r.base)
 	switch rv.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:

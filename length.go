@@ -9,6 +9,8 @@ import (
 	"unicode/utf8"
 )
 
+var _ Rule = (*LengthRule)(nil)
+
 var (
 	// ErrLengthTooLong is the error that returns in case of too long length.
 	ErrLengthTooLong = NewError("validation_length_too_long", "the length must be no more than {{.max}}")
@@ -51,12 +53,7 @@ type LengthRule struct {
 }
 
 // Validate checks if the given value is valid or not.
-func (r LengthRule) Validate(value interface{}) error {
-	return r.ValidateWithContext(context.Background(), value)
-}
-
-// ValidateWithContext checks if the given value is valid or not.
-func (r LengthRule) ValidateWithContext(ctx context.Context, value interface{}) error {
+func (r LengthRule) Validate(ctx context.Context, value interface{}) error {
 	value, isNil := indirectWithOptions(value, GetOptions(ctx))
 	if isNil || IsEmpty(value) {
 		return nil

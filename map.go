@@ -7,6 +7,8 @@ import (
 	"reflect"
 )
 
+var _ Rule = (*MapRule)(nil)
+
 var (
 	// ErrNotMap is the error that the value being validated is not a map.
 	ErrNotMap = errors.New("only a map can be validated")
@@ -73,12 +75,7 @@ func (r MapRule) Values(rules ...Rule) MapRule {
 }
 
 // Validate checks if the given value is valid or not.
-func (r MapRule) Validate(m interface{}) error {
-	return r.ValidateWithContext(context.Background(), m)
-}
-
-// ValidateWithContext checks if the given value is valid or not.
-func (r MapRule) ValidateWithContext(ctx context.Context, m interface{}) error {
+func (r MapRule) Validate(ctx context.Context, m interface{}) error {
 	value := reflect.ValueOf(m)
 	if value.Kind() == reflect.Ptr {
 		value = value.Elem()
@@ -107,13 +104,6 @@ func (r MapRule) ValidateWithContext(ctx context.Context, m interface{}) error {
 		} else if vv := value.MapIndex(kv); !vv.IsValid() {
 			if !kr.optional {
 				err = ErrKeyMissing
-			}
-		} else if ctx == nil {
-			if r.keys != nil {
-				err = Validate(kr.key, r.keys...)
-			}
-			if err == nil {
-				err = Validate(vv.Interface(), append(r.values, kr.rules...)...)
 			}
 		} else {
 			if r.keys != nil {
@@ -151,20 +141,12 @@ func (r MapRule) ValidateWithContext(ctx context.Context, m interface{}) error {
 
 			var err error
 			if len(r.keys) != 0 {
-				if ctx == nil {
-					err = Validate(key, r.keys...)
-				} else {
-					err = ValidateWithContext(ctx, key, r.keys...)
-				}
+				err = ValidateWithContext(ctx, key, r.keys...)
 			}
 
 			if err == nil && len(r.values) != 0 {
 				vv := value.MapIndex(kv)
-				if ctx == nil {
-					err = Validate(vv.Interface(), r.values...)
-				} else {
-					err = ValidateWithContext(ctx, vv.Interface(), r.values...)
-				}
+				err = ValidateWithContext(ctx, vv.Interface(), r.values...)
 			}
 
 			if err != nil {

@@ -136,21 +136,21 @@ func TestValidateStruct(t *testing.T) {
 		{"t9.1", &m5, []*FieldRules{Field(&m5.A, &validateAbc{}), Field(&m5.B, Required), Field(&m5.A, &validateInternalError{})}, "error internal"},
 	}
 	for _, test := range tests {
-		err1 := ValidateStruct(test.model, test.rules...)
-		err2 := ValidateStructWithContext(context.Background(), test.model, test.rules...)
+		err1 := ValidateStructWithContext(nil, test.model, test.rules...)
+		err2 := ValidateStructWithContext(nil, test.model, test.rules...)
 		assertError(t, test.err, err1, test.tag)
 		assertError(t, test.err, err2, test.tag)
 	}
 
 	// embedded struct
-	err := Validate(&m3)
+	err := ValidateWithContext(nil, &m3)
 	assert.EqualError(t, err, "A: error abc.")
 
 	a := struct {
 		Name  string
 		Value string
 	}{"name", "demo"}
-	err = ValidateStruct(&a,
+	err = ValidateStructWithContext(nil, &a,
 		Field(&a.Name, Required),
 		Field(&a.Value, Required, Length(5, 10)),
 	)

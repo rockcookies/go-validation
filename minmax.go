@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+var _ Rule = (*ThresholdRule)(nil)
+
 var (
 	// ErrMinGreaterEqualThanRequired is the error that returns when a value is less than a specified threshold.
 	ErrMinGreaterEqualThanRequired = NewError("validation_min_greater_equal_than_required", "must be no less than {{.threshold}}")
@@ -76,12 +78,7 @@ func (r ThresholdRule) CmpFunc(fn CmpFunc) ThresholdRule {
 }
 
 // Validate checks if the given value is valid or not.
-func (r ThresholdRule) Validate(value interface{}) error {
-	return r.ValidateWithContext(context.Background(), value)
-}
-
-// ValidateWithContext checks if the given value is valid or not.
-func (r ThresholdRule) ValidateWithContext(ctx context.Context, value interface{}) error {
+func (r ThresholdRule) Validate(ctx context.Context, value interface{}) error {
 	value, isNil := indirectWithOptions(value, GetOptions(ctx))
 	if isNil || IsEmpty(value) {
 		return nil

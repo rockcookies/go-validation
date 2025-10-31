@@ -2,6 +2,8 @@ package validation
 
 import "context"
 
+var _ Rule = (*WhenRule)(nil)
+
 // When returns a validation rule that executes the given list of rules when the condition is true.
 func When(condition bool, rules ...Rule) WhenRule {
 	return WhenRule{
@@ -19,22 +21,11 @@ type WhenRule struct {
 }
 
 // Validate checks if the condition is true and if so, it validates the value using the specified rules.
-func (r WhenRule) Validate(value interface{}) error {
-	return r.ValidateWithContext(context.Background(), value)
-}
-
-// ValidateWithContext checks if the condition is true and if so, it validates the value using the specified rules.
-func (r WhenRule) ValidateWithContext(ctx context.Context, value interface{}) error {
+func (r WhenRule) Validate(ctx context.Context, value interface{}) error {
 	if r.condition {
-		if ctx == nil {
-			return Validate(value, r.rules...)
-		}
 		return ValidateWithContext(ctx, value, r.rules...)
 	}
 
-	if ctx == nil {
-		return Validate(value, r.elseRules...)
-	}
 	return ValidateWithContext(ctx, value, r.elseRules...)
 }
 

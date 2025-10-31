@@ -41,18 +41,18 @@ func TestRequired(t *testing.T) {
 
 	for _, test := range tests {
 		r := Required
-		err := r.Validate(test.value)
+		err := r.Validate(nil, test.value)
 		assertError(t, test.err, err, test.tag)
 	}
 }
 
 func TestRequiredRule_When(t *testing.T) {
 	r := Required.When(false)
-	err := Validate(nil, r)
+	err := ValidateWithContext(nil, nil, r)
 	assert.Nil(t, err)
 
 	r = Required.When(true)
-	err = Validate(nil, r)
+	err = ValidateWithContext(nil, nil, r)
 	assert.Equal(t, ErrRequired, err)
 }
 
@@ -73,26 +73,26 @@ func TestNilOrNotEmpty(t *testing.T) {
 
 	for _, test := range tests {
 		r := NilOrNotEmpty
-		err := r.Validate(test.value)
+		err := r.Validate(nil, test.value)
 		assertError(t, test.err, err, test.tag)
 	}
 }
 
 func Test_requiredRule_Error(t *testing.T) {
 	r := Required
-	assert.Equal(t, "cannot be blank", r.Validate(nil).Error())
+	assert.Equal(t, "cannot be blank", r.Validate(nil, nil).Error())
 	assert.False(t, r.skipNil)
 	r2 := r.Error("123")
-	assert.Equal(t, "cannot be blank", r.Validate(nil).Error())
+	assert.Equal(t, "cannot be blank", r.Validate(nil, nil).Error())
 	assert.False(t, r.skipNil)
 	assert.Equal(t, "123", r2.err.Message())
 	assert.False(t, r2.skipNil)
 
 	r = NilOrNotEmpty
-	assert.Equal(t, "cannot be blank", r.Validate("").Error())
+	assert.Equal(t, "cannot be blank", r.Validate(nil, "").Error())
 	assert.True(t, r.skipNil)
 	r2 = r.Error("123")
-	assert.Equal(t, "cannot be blank", r.Validate("").Error())
+	assert.Equal(t, "cannot be blank", r.Validate(nil, "").Error())
 	assert.True(t, r.skipNil)
 	assert.Equal(t, "123", r2.err.Message())
 	assert.True(t, r2.skipNil)

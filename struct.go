@@ -40,33 +40,15 @@ func (e ErrFieldNotFound) Error() string {
 	return fmt.Sprintf("field #%v cannot be found in the struct", int(e))
 }
 
-// ValidateStruct validates a struct by checking the specified struct fields against the corresponding validation rules.
-// Note that the struct being validated must be specified as a pointer to it. If the pointer is nil, it is considered valid.
-// Use Field() to specify struct fields that need to be validated. Each Field() call specifies a single field which
-// should be specified as a pointer to the field. A field can be associated with multiple rules.
-// For example,
-//
-//	value := struct {
-//	    Name  string
-//	    Value string
-//	}{"name", "demo"}
-//	err := validation.ValidateStruct(&value,
-//	    validation.Field(&a.Name, validation.Required),
-//	    validation.Field(&a.Value, validation.Required, validation.Length(5, 10)),
-//	)
-//	fmt.Println(err)
-//	// Value: the length must be between 5 and 10.
-//
-// An error will be returned if validation fails.
-func ValidateStruct(structPtr interface{}, fields ...*FieldRules) error {
-	return ValidateStructWithContext(nil, structPtr, fields...)
-}
-
 // ValidateStructWithContext validates a struct with the given context.
 // The only difference between ValidateStructWithContext and ValidateStruct is that the former will
 // validate struct fields with the provided context.
 // Please refer to ValidateStruct for the detailed instructions on how to use this function.
 func ValidateStructWithContext(ctx context.Context, structPtr interface{}, fields ...*FieldRules) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	value := reflect.ValueOf(structPtr)
 	if value.Kind() != reflect.Ptr || !value.IsNil() && value.Elem().Kind() != reflect.Struct {
 		// must be a pointer to a struct
@@ -97,14 +79,7 @@ func ValidateStructWithContext(ctx context.Context, structPtr interface{}, field
 			validateValue = fv.Interface()
 		}
 
-		var err error
-		if ctx == nil {
-			err = Validate(validateValue, fr.rules...)
-		} else {
-			err = ValidateWithContext(ctx, validateValue, fr.rules...)
-		}
-
-		if err != nil {
+		if err := ValidateWithContext(ctx, validateValue, fr.rules...); err != nil {
 			if ie, ok := err.(InternalError); ok && ie.InternalError() != nil {
 				return err
 			}
@@ -156,10 +131,7 @@ func FieldStruct(structPtr interface{}, fields ...*FieldRules) *FieldRules {
 	return &FieldRules{
 		fieldPtr: structPtr,
 		rules: []Rule{&inlineRule{
-			f: func(value interface{}) error {
-				return ValidateStruct(value, fields...)
-			},
-			fc: func(ctx context.Context, value interface{}) error {
+			f: func(ctx context.Context, value interface{}) error {
 				return ValidateStructWithContext(ctx, value, fields...)
 			},
 		}},

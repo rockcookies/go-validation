@@ -52,7 +52,7 @@ func TestWhen(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		err := Validate(test.value, When(test.condition, test.rules...).Else(test.elseRules...))
+		err := ValidateWithContext(nil, test.value, When(test.condition, test.rules...).Else(test.elseRules...))
 		assertError(t, test.err, err, test.tag)
 	}
 }
@@ -64,7 +64,7 @@ const (
 )
 
 func TestWhenWithContext(t *testing.T) {
-	rule := WithContext(func(ctx context.Context, value interface{}) error {
+	rule := By(func(ctx context.Context, value interface{}) error {
 		if !strings.Contains(value.(string), ctx.Value(contains).(string)) {
 			return errors.New("unexpected value")
 		}

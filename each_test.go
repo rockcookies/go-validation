@@ -9,7 +9,7 @@ import (
 
 func TestEach(t *testing.T) {
 	var a *int
-	var f = func(v string) string { return v }
+	f := func(v string) string { return v }
 	var c0 chan int
 	c1 := make(chan int)
 
@@ -35,13 +35,13 @@ func TestEach(t *testing.T) {
 	}
 	for _, test := range tests {
 		r := Each(Required)
-		err := r.Validate(test.value)
+		err := r.Validate(nil, test.value)
 		assertError(t, test.err, err, test.tag)
 	}
 }
 
 func TestEachWithContext(t *testing.T) {
-	rule := Each(WithContext(func(ctx context.Context, value interface{}) error {
+	rule := Each(By(func(ctx context.Context, value interface{}) error {
 		if !strings.Contains(value.(string), ctx.Value(contains).(string)) {
 			return errors.New("unexpected value")
 		}
@@ -75,10 +75,10 @@ func TestEachWithContext(t *testing.T) {
 func TestEachAndBy(t *testing.T) {
 	var byAddr bool
 	var s string
-	_ = Each(By(func(v interface{}) error {
+	_ = Each(By(func(ctx context.Context, v interface{}) error {
 		_, byAddr = v.(*string)
 		return nil
-	})).Validate([]*string{&s})
+	})).Validate(nil, []*string{&s})
 
 	if !byAddr {
 		t.Fatal("slice of pointers does not get passed to `By` function by ref")

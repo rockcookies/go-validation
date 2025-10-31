@@ -12,23 +12,22 @@ import (
 
 func TestMultipleOf(t *testing.T) {
 	r := MultipleOf(10)
-	assert.Equal(t, "must be multiple of 10", r.Validate(11).Error())
-	assert.Equal(t, nil, r.Validate(20))
-	assert.Equal(t, "cannot convert float32 to int64", r.Validate(float32(20)).Error())
+	assert.Equal(t, "must be multiple of 10", r.Validate(nil, 11).Error())
+	assert.Equal(t, nil, r.Validate(nil, 20))
+	assert.Equal(t, "cannot convert float32 to int64", r.Validate(nil, float32(20)).Error())
 
 	r2 := MultipleOf("some string ....")
-	assert.Equal(t, "type not supported: string", r2.Validate(10).Error())
+	assert.Equal(t, "type not supported: string", r2.Validate(nil, 10).Error())
 
 	r3 := MultipleOf(uint(10))
-	assert.Equal(t, "must be multiple of 10", r3.Validate(uint(11)).Error())
-	assert.Equal(t, nil, r3.Validate(uint(20)))
-	assert.Equal(t, "cannot convert float32 to uint64", r3.Validate(float32(20)).Error())
-
+	assert.Equal(t, "must be multiple of 10", r3.Validate(nil, uint(11)).Error())
+	assert.Equal(t, nil, r3.Validate(nil, uint(20)))
+	assert.Equal(t, "cannot convert float32 to uint64", r3.Validate(nil, float32(20)).Error())
 }
 
 func Test_MultipleOf_Error(t *testing.T) {
 	r := MultipleOf(10)
-	assert.Equal(t, "must be multiple of 10", r.Validate(3).Error())
+	assert.Equal(t, "must be multiple of 10", r.Validate(nil, 3).Error())
 
 	r = r.Error("some error string ...")
 	assert.Equal(t, "some error string ...", r.err.Message())

@@ -9,6 +9,8 @@ import (
 	"reflect"
 )
 
+var _ Rule = (*InRule[any])(nil)
+
 // ErrInInvalid is the error that returns in case of an invalid value for "in" rule.
 var ErrInInvalid = NewError("validation_in_invalid", "must be a valid value")
 
@@ -30,11 +32,7 @@ type InRule[T any] struct {
 }
 
 // Validate checks if the given value is valid or not.
-func (r InRule[T]) Validate(value interface{}) error {
-	return r.ValidateWithContext(context.Background(), value)
-}
-
-func (r InRule[T]) ValidateWithContext(ctx context.Context, value interface{}) error {
+func (r InRule[T]) Validate(ctx context.Context, value interface{}) error {
 	value, isNil := indirectWithOptions(value, GetOptions(ctx))
 
 	if isNil || IsEmpty(value) {

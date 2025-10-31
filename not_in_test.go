@@ -13,7 +13,7 @@ import (
 func TestNotIn(t *testing.T) {
 	v := 1
 	var v2 *int
-	var tests = []struct {
+	tests := []struct {
 		tag    string
 		values []interface{}
 		value  interface{}
@@ -31,7 +31,7 @@ func TestNotIn(t *testing.T) {
 
 	for _, test := range tests {
 		r := NotIn(test.values...)
-		err := r.Validate(test.value)
+		err := r.Validate(nil, test.value)
 		assertError(t, test.err, err, test.tag)
 	}
 }
@@ -39,7 +39,7 @@ func TestNotIn(t *testing.T) {
 func TestNotIn_Ints(t *testing.T) {
 	v := 1
 	var v2 *int
-	var tests = []struct {
+	tests := []struct {
 		tag    string
 		values []int
 		value  any
@@ -57,14 +57,14 @@ func TestNotIn_Ints(t *testing.T) {
 
 	for _, test := range tests {
 		r := NotIn(test.values...)
-		err := r.Validate(test.value)
+		err := r.Validate(nil, test.value)
 		assertError(t, test.err, err, test.tag)
 	}
 }
 
 func Test_NotInRule_Error(t *testing.T) {
 	r := NotIn(1, 2, 3)
-	assert.Equal(t, "must not be in list", r.Validate(1).Error())
+	assert.Equal(t, "must not be in list", r.Validate(nil, 1).Error())
 	r = r.Error("123")
 	assert.Equal(t, "123", r.err.Message())
 }

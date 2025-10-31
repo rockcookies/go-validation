@@ -39,7 +39,7 @@ func TestLength(t *testing.T) {
 
 	for _, test := range tests {
 		r := Length(test.min, test.max)
-		err := r.Validate(test.value)
+		err := r.Validate(nil, test.value)
 		assertError(t, test.err, err, test.tag)
 	}
 }
@@ -74,20 +74,20 @@ func TestRuneLength(t *testing.T) {
 
 	for _, test := range tests {
 		r := RuneLength(test.min, test.max)
-		err := r.Validate(test.value)
+		err := r.Validate(nil, test.value)
 		assertError(t, test.err, err, test.tag)
 	}
 }
 
 func Test_LengthRule_Error(t *testing.T) {
 	r := Length(10, 20)
-	assert.Equal(t, "the length must be between 10 and 20", r.Validate("abc").Error())
+	assert.Equal(t, "the length must be between 10 and 20", r.Validate(nil, "abc").Error())
 
 	r = Length(0, 20)
-	assert.Equal(t, "the length must be no more than 20", r.Validate(make([]string, 21)).Error())
+	assert.Equal(t, "the length must be no more than 20", r.Validate(nil, make([]string, 21)).Error())
 
 	r = Length(10, 0)
-	assert.Equal(t, "the length must be no less than 10", r.Validate([9]string{}).Error())
+	assert.Equal(t, "the length must be no less than 10", r.Validate(nil, [9]string{}).Error())
 
 	r = Length(0, 0)
 	assert.Equal(t, "validation_length_empty_required", r.err.Code())

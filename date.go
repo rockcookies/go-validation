@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+var _ Rule = (*DateRule)(nil)
+
 var (
 	// ErrDateInvalid is the error that returns in case of an invalid date.
 	ErrDateInvalid = NewError("validation_date_invalid", "must be a valid date")
@@ -80,12 +82,7 @@ func (r DateRule) Max(max time.Time) DateRule {
 }
 
 // Validate checks if the given value is a valid date.
-func (r DateRule) Validate(value interface{}) error {
-	return r.ValidateWithContext(context.Background(), value)
-}
-
-// ValidateWithContext checks if the given value is a valid date.
-func (r DateRule) ValidateWithContext(ctx context.Context, value interface{}) error {
+func (r DateRule) Validate(ctx context.Context, value interface{}) error {
 	value, isNil := indirectWithOptions(value, GetOptions(ctx))
 	if isNil || IsEmpty(value) {
 		return nil

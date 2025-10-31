@@ -79,14 +79,14 @@ func TestMap(t *testing.T) {
 		{"t10.4", m8, []Rule{Length(3, 4)}, nil, []*KeyRules{Key("11", Required), Key("222", &validateXyz{})}, "11: the length must be between 3 and 4."},
 	}
 	for _, test := range tests {
-		err1 := Validate(test.model, Map(test.distinctKeys...).AllowExtraKeys().Keys(test.keyRules...).Values(test.valueRules...))
-		err2 := ValidateWithContext(context.Background(), test.model, Map(test.distinctKeys...).AllowExtraKeys().Keys(test.keyRules...).Values(test.valueRules...))
+		err1 := ValidateWithContext(nil, test.model, Map(test.distinctKeys...).AllowExtraKeys().Keys(test.keyRules...).Values(test.valueRules...))
+		err2 := ValidateWithContext(nil, test.model, Map(test.distinctKeys...).AllowExtraKeys().Keys(test.keyRules...).Values(test.valueRules...))
 		assertError(t, test.err, err1, test.tag)
 		assertError(t, test.err, err2, test.tag)
 	}
 
 	a := map[string]interface{}{"Name": "name", "Value": "demo", "Extra": true}
-	err := Validate(a, Map(
+	err := ValidateWithContext(nil, a, Map(
 		Key("Name", Required),
 		Key("Value", Required, Length(5, 10)),
 	))

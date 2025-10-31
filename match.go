@@ -28,12 +28,8 @@ type MatchRule struct {
 	err Error
 }
 
-func (r MatchRule) Validate(value interface{}) error {
-	return r.ValidateWithContext(context.Background(), value)
-}
-
 // Validate checks if the given value is valid or not.
-func (r MatchRule) ValidateWithContext(ctx context.Context, value interface{}) error {
+func (r MatchRule) Validate(ctx context.Context, value interface{}) error {
 	value, isNil := indirectWithOptions(value, GetOptions(ctx))
 	if isNil {
 		return nil

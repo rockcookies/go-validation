@@ -6,6 +6,8 @@ package validation
 
 import "context"
 
+var _ Rule = (*absentRule)(nil)
+
 var (
 	// ErrNil is the error that returns when a value is not nil.
 	ErrNil = NewError("validation_nil", "must be blank")
@@ -27,12 +29,7 @@ type absentRule struct {
 }
 
 // Validate checks if the given value is valid or not.
-func (r absentRule) Validate(value interface{}) error {
-	return r.ValidateWithContext(context.Background(), value)
-}
-
-// ValidateWithContext checks if the given value is valid or not.
-func (r absentRule) ValidateWithContext(ctx context.Context, value interface{}) error {
+func (r absentRule) Validate(ctx context.Context, value interface{}) error {
 	if r.condition {
 		value, isNil := indirectWithOptions(value, GetOptions(ctx))
 		if !r.skipNil && !isNil || r.skipNil && !isNil && !IsEmpty(value) {

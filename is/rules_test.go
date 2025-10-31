@@ -79,15 +79,15 @@ func TestAll(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		err := test.rule.Validate("")
+		err := test.rule.Validate(nil, "")
 		assert.Nil(t, err, test.tag)
-		err = test.rule.Validate(test.valid)
+		err = test.rule.Validate(nil, test.valid)
 		assert.Nil(t, err, test.tag)
-		err = test.rule.Validate(&test.valid)
+		err = test.rule.Validate(nil, &test.valid)
 		assert.Nil(t, err, test.tag)
-		err = test.rule.Validate(test.invalid)
+		err = test.rule.Validate(nil, test.invalid)
 		assertError(t, test.err, err, test.tag)
-		err = test.rule.Validate(&test.invalid)
+		err = test.rule.Validate(nil, &test.invalid)
 		assertError(t, test.err, err, test.tag)
 	}
 }

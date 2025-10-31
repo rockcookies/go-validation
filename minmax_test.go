@@ -62,14 +62,14 @@ func TestMin(t *testing.T) {
 		if test.exclusive {
 			r = r.Exclusive()
 		}
-		err := r.Validate(test.value)
+		err := r.Validate(nil, test.value)
 		assertError(t, test.err, err, test.tag)
 	}
 }
 
 func TestMinError(t *testing.T) {
 	r := Min(10)
-	assert.Equal(t, "must be no less than 10", r.Validate(9).Error())
+	assert.Equal(t, "must be no less than 10", r.Validate(nil, 9).Error())
 
 	r = r.Error("123")
 	assert.Equal(t, "123", r.err.Message())
@@ -136,14 +136,14 @@ func TestMax(t *testing.T) {
 			r = r.Exclusive()
 		}
 
-		err := r.CmpFunc(test.customFn).Validate(test.value)
+		err := r.CmpFunc(test.customFn).Validate(nil, test.value)
 		assertError(t, test.err, err, test.tag)
 	}
 }
 
 func TestMaxError(t *testing.T) {
 	r := Max(10)
-	assert.Equal(t, "must be no greater than 10", r.Validate(11).Error())
+	assert.Equal(t, "must be no greater than 10", r.Validate(nil, 11).Error())
 
 	r = r.Error("123")
 	assert.Equal(t, "123", r.err.Message())

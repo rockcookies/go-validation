@@ -31,14 +31,14 @@ func TestMatch(t *testing.T) {
 
 	for _, test := range tests {
 		r := Match(regexp.MustCompile(test.re))
-		err := r.Validate(test.value)
+		err := r.Validate(nil, test.value)
 		assertError(t, test.err, err, test.tag)
 	}
 }
 
 func Test_MatchRule_Error(t *testing.T) {
 	r := Match(regexp.MustCompile("[a-z]+"))
-	assert.Equal(t, "must be in a valid format", r.Validate("13").Error())
+	assert.Equal(t, "must be in a valid format", r.Validate(nil, "13").Error())
 	r = r.Error("123")
 	assert.Equal(t, "123", r.err.Message())
 }

@@ -11,7 +11,7 @@ import (
 )
 
 func TestIn(t *testing.T) {
-	var v = 1
+	v := 1
 	var v2 *int
 	tests := []struct {
 		tag    string
@@ -32,13 +32,13 @@ func TestIn(t *testing.T) {
 
 	for _, test := range tests {
 		r := In(test.values...)
-		err := r.Validate(test.value)
+		err := r.Validate(nil, test.value)
 		assertError(t, test.err, err, test.tag)
 	}
 }
 
 func TestIn_Generics(t *testing.T) {
-	var v = "a"
+	v := "a"
 	var v2 *string
 	tests := []struct {
 		tag    string
@@ -56,7 +56,7 @@ func TestIn_Generics(t *testing.T) {
 
 	for _, test := range tests {
 		r := In(test.values...)
-		err := r.Validate(test.value)
+		err := r.Validate(nil, test.value)
 		assertError(t, test.err, err, test.tag)
 	}
 }
@@ -64,7 +64,7 @@ func TestIn_Generics(t *testing.T) {
 func Test_InRule_Error(t *testing.T) {
 	r := In(1, 2, 3)
 	val := 4
-	assert.Equal(t, "must be a valid value", r.Validate(&val).Error())
+	assert.Equal(t, "must be a valid value", r.Validate(nil, &val).Error())
 	r = r.Error("123")
 	assert.Equal(t, "123", r.err.Message())
 }
@@ -83,7 +83,7 @@ func TestInRule_ErrorObject(t *testing.T) {
 func TestValidateAgainstList(t *testing.T) {
 	optionsList := []string{"a", "b", "c"}
 	// I've always felt that this was dangerous
-	assert.ErrorContains(t, Validate("a", In(optionsList)), "must be a valid value")
+	assert.ErrorContains(t, ValidateWithContext(nil, "a", In(optionsList)), "must be a valid value")
 	// This is better, no need to convert to interface
-	assert.NoError(t, Validate("a", In(optionsList...)))
+	assert.NoError(t, ValidateWithContext(nil, "a", In(optionsList...)))
 }

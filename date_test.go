@@ -31,16 +31,16 @@ func TestDate(t *testing.T) {
 
 	for _, test := range tests {
 		r := Date(test.layout)
-		err := r.Validate(test.value)
+		err := r.Validate(nil, test.value)
 		assertError(t, test.err, err, test.tag)
 	}
 }
 
 func TestDateRule_Error(t *testing.T) {
 	r := Date(time.RFC3339)
-	assert.Equal(t, "must be a valid date", r.Validate("0001-01-02T15:04:05Z07:00").Error())
+	assert.Equal(t, "must be a valid date", r.Validate(nil, "0001-01-02T15:04:05Z07:00").Error())
 	r2 := r.Min(time.Date(2000, 1, 1, 1, 1, 1, 0, time.UTC))
-	assert.Equal(t, "the date is out of range", r2.Validate("1999-01-02T15:04:05Z").Error())
+	assert.Equal(t, "the date is out of range", r2.Validate(nil, "1999-01-02T15:04:05Z").Error())
 	r = r.Error("123")
 	r = r.RangeError("456")
 	assert.Equal(t, "123", r.err.Message())
@@ -49,15 +49,15 @@ func TestDateRule_Error(t *testing.T) {
 
 func TestDateRule_ErrorObject(t *testing.T) {
 	r := Date(time.RFC3339)
-	assert.Equal(t, "must be a valid date", r.Validate("0001-01-02T15:04:05Z07:00").Error())
+	assert.Equal(t, "must be a valid date", r.Validate(nil, "0001-01-02T15:04:05Z07:00").Error())
 
 	r = r.ErrorObject(NewError("code", "abc"))
 
 	assert.Equal(t, "code", r.err.Code())
-	assert.Equal(t, "abc", r.Validate("0001-01-02T15:04:05Z07:00").Error())
+	assert.Equal(t, "abc", r.Validate(nil, "0001-01-02T15:04:05Z07:00").Error())
 
 	r2 := r.Min(time.Date(2000, 1, 1, 1, 1, 1, 0, time.UTC))
-	assert.Equal(t, "the date is out of range", r2.Validate("1999-01-02T15:04:05Z").Error())
+	assert.Equal(t, "the date is out of range", r2.Validate(nil, "1999-01-02T15:04:05Z").Error())
 
 	r = r.ErrorObject(NewError("C", "def"))
 	r = r.RangeErrorObject(NewError("D", "123"))
@@ -79,12 +79,12 @@ func TestDateRule_MinMax(t *testing.T) {
 	assert.False(t, r.max.IsZero())
 
 	r2 := Date("2006-01-02").Min(time.Date(2000, 12, 1, 0, 0, 0, 0, time.UTC)).Max(time.Date(2020, 2, 1, 0, 0, 0, 0, time.UTC))
-	assert.Nil(t, r2.Validate("2010-01-02"))
-	err := r2.Validate("1999-01-02")
+	assert.Nil(t, r2.Validate(nil, "2010-01-02"))
+	err := r2.Validate(nil, "1999-01-02")
 	if assert.NotNil(t, err) {
 		assert.Equal(t, "the date is out of range", err.Error())
 	}
-	err = r2.Validate("2021-01-02")
+	err = r2.Validate(nil, "2021-01-02")
 	if assert.NotNil(t, err) {
 		assert.Equal(t, "the date is out of range", err.Error())
 	}

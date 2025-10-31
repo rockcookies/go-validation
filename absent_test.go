@@ -30,7 +30,7 @@ func TestNil(t *testing.T) {
 
 	for _, test := range tests {
 		r := Nil
-		err := r.Validate(test.value)
+		err := r.Validate(nil, test.value)
 		assertError(t, test.err, err, test.tag)
 	}
 }
@@ -56,36 +56,36 @@ func TestEmpty(t *testing.T) {
 
 	for _, test := range tests {
 		r := Empty
-		err := r.Validate(test.value)
+		err := r.Validate(nil, test.value)
 		assertError(t, test.err, err, test.tag)
 	}
 }
 
 func TestAbsentRule_When(t *testing.T) {
 	r := Nil.When(false)
-	err := Validate(42, r)
+	err := ValidateWithContext(nil, 42, r)
 	assert.Nil(t, err)
 
 	r = Nil.When(true)
-	err = Validate(42, r)
+	err = ValidateWithContext(nil, 42, r)
 	assert.Equal(t, ErrNil, err)
 }
 
 func Test_absentRule_Error(t *testing.T) {
 	r := Nil
-	assert.Equal(t, "must be blank", r.Validate("42").Error())
+	assert.Equal(t, "must be blank", r.Validate(nil, "42").Error())
 	assert.False(t, r.skipNil)
 	r2 := r.Error("123")
-	assert.Equal(t, "must be blank", r.Validate("42").Error())
+	assert.Equal(t, "must be blank", r.Validate(nil, "42").Error())
 	assert.False(t, r.skipNil)
 	assert.Equal(t, "123", r2.err.Message())
 	assert.False(t, r2.skipNil)
 
 	r = Empty
-	assert.Equal(t, "must be blank", r.Validate("42").Error())
+	assert.Equal(t, "must be blank", r.Validate(nil, "42").Error())
 	assert.True(t, r.skipNil)
 	r2 = r.Error("123")
-	assert.Equal(t, "must be blank", r.Validate("42").Error())
+	assert.Equal(t, "must be blank", r.Validate(nil, "42").Error())
 	assert.True(t, r.skipNil)
 	assert.Equal(t, "123", r2.err.Message())
 	assert.True(t, r2.skipNil)

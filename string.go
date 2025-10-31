@@ -6,11 +6,15 @@ package validation
 
 import "context"
 
+var _ Rule = (*StringRule)(nil)
+
 type stringValidator func(string) bool
+
+type stringValidatorWithContext func(context.Context, string) bool
 
 // StringRule is a rule that checks a string variable using a specified stringValidator.
 type StringRule struct {
-	validate stringValidator
+	validate stringValidatorWithContext
 	err      Error
 }
 
@@ -19,7 +23,7 @@ type StringRule struct {
 // An empty value is considered to be valid. Please use the Required rule to make sure a value is not empty.
 func NewStringRule(validator stringValidator, message string) StringRule {
 	return StringRule{
-		validate: validator,
+		validate: func(_ context.Context, s string) bool { return validator(s) },
 		err:      NewError("", message),
 	}
 }
@@ -29,8 +33,28 @@ func NewStringRule(validator stringValidator, message string) StringRule {
 // An empty value is considered to be valid. Please use the Required rule to make sure a value is not empty.
 func NewStringRuleWithError(validator stringValidator, err Error) StringRule {
 	return StringRule{
-		validate: validator,
+		validate: func(_ context.Context, s string) bool { return validator(s) },
 		err:      err,
+	}
+}
+
+// NewStringRuleWithContext creates a new validation rule using a function that takes a context and a string value and returns a bool.
+// The rule returned will use the function to check if a given string or byte slice is valid or not.
+// An empty value is considered to be valid. Please use the Required rule to make sure a value is not empty.
+func NewStringRuleWithContext(validator stringValidatorWithContext, message string) StringRule {
+	return StringRule{
+		validate: validator,
+		err:      NewError("", message),
+	}
+}
+
+// NewStringRuleWithContextError creates a new validation rule using a function that takes a context and a string value and returns a bool.
+// The rule returned will use the function to check if a given string or byte slice is valid or not.
+// An empty value is considered to be valid. Please use the Required rule to make sure a value is not empty.
+func NewStringRuleWithContextError(validator stringValidatorWithContext, message string) StringRule {
+	return StringRule{
+		validate: validator,
+		err:      NewError("", message),
 	}
 }
 
@@ -47,12 +71,11 @@ func (r StringRule) ErrorObject(err Error) StringRule {
 }
 
 // Validate checks if the given value is valid or not.
-func (r StringRule) Validate(value interface{}) error {
-	return r.ValidateWithContext(context.Background(), value)
-}
+func (r StringRule) Validate(ctx context.Context, value interface{}) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
-// ValidateWithContext checks if the given value is valid or not.
-func (r StringRule) ValidateWithContext(ctx context.Context, value interface{}) error {
 	value, isNil := indirectWithOptions(value, GetOptions(ctx))
 	if isNil || IsEmpty(value) {
 		return nil
@@ -63,7 +86,7 @@ func (r StringRule) ValidateWithContext(ctx context.Context, value interface{}) 
 		return err
 	}
 
-	if r.validate(str) {
+	if r.validate(ctx, str) {
 		return nil
 	}
 
