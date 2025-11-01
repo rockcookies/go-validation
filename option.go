@@ -6,20 +6,17 @@ import (
 )
 
 type (
-	ValuerFunc                func(any) (any, bool)
-	GetErrorFieldNameFunc     func(f *reflect.StructField) string
-	FindStructFieldByNameFunc func(structValue reflect.Value, name string) (reflect.Value, *reflect.StructField, bool)
+	ValuerFunc            func(any) (any, bool)
+	GetErrorFieldNameFunc func(f *reflect.StructField) string
 
 	Options interface {
 		ValuerFunc() ValuerFunc
 		GetErrorFieldNameFunc() GetErrorFieldNameFunc
-		FindStructFieldByNameFunc() FindStructFieldByNameFunc
 	}
 
 	options struct {
-		valuerFunc                ValuerFunc
-		getErrorFieldNameFunc     GetErrorFieldNameFunc
-		findStructFieldByNameFunc FindStructFieldByNameFunc
+		valuerFunc            ValuerFunc
+		getErrorFieldNameFunc GetErrorFieldNameFunc
 	}
 
 	Option func(*options)
@@ -32,16 +29,12 @@ type optionsCtxKeyType struct{}
 var optionsCtxKey = optionsCtxKeyType{}
 
 var defaultOptions = &options{
-	valuerFunc:                DefaultValuer,
-	getErrorFieldNameFunc:     DefaultGetErrorFieldName,
-	findStructFieldByNameFunc: DefaultFindStructFieldByName,
+	valuerFunc:            DefaultValuer,
+	getErrorFieldNameFunc: DefaultGetErrorFieldName,
 }
 
 func (o *options) ValuerFunc() ValuerFunc                       { return o.valuerFunc }
 func (o *options) GetErrorFieldNameFunc() GetErrorFieldNameFunc { return o.getErrorFieldNameFunc }
-func (o *options) FindStructFieldByNameFunc() FindStructFieldByNameFunc {
-	return o.findStructFieldByNameFunc
-}
 
 func DefaultOptions() Options {
 	return defaultOptions
@@ -59,14 +52,6 @@ func WithGetErrorFieldNameFunc(f GetErrorFieldNameFunc) Option {
 	return func(o *options) {
 		if f != nil {
 			o.getErrorFieldNameFunc = f
-		}
-	}
-}
-
-func WithFindStructFieldByNameFunc(f FindStructFieldByNameFunc) Option {
-	return func(o *options) {
-		if f != nil {
-			o.findStructFieldByNameFunc = f
 		}
 	}
 }
