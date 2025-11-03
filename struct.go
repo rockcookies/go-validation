@@ -14,6 +14,45 @@ import (
 // ErrStructPointer is the error that a struct being validated is not specified as a pointer.
 var ErrStructPointer = errors.New("only a pointer to a struct can be validated")
 
+// ValidateStruct validates a struct.
+// The structPtr parameter must be a pointer to a struct. If structPtr is nil, it is considered valid.
+// The fields parameter specifies which struct fields to be validated and the validation rules for each field.
+// Each element in fields corresponds to one struct field. The order of the elements in fields does not
+// have to be the same as the order of the struct fields.
+//
+// For each element in fields, if the specified struct field is found, its value will be validated
+// against the validation rules associated with that field. If the field is not found, it will be skipped.
+// If the field is an anonymous struct field and there are validation errors for that field,
+// the validation errors will be merged into the top-level validation errors.
+//
+// If there are validation errors, they will be returned as an Errors object,
+// where each key is the name of a struct field and the corresponding value is the validation error for that field.
+// The name of a struct field is determined by the "json" tag of the field. If the "json" tag is not present,
+// the actual field name will be used.
+//
+// Example:
+//
+//	type User struct {
+//	    ID    int
+//	    Name  string `json:"name"`
+//	    Email string
+//	}
+//
+//	user := &User{ID: 1, Name: "", Email: "invalid-email"}
+//	err := validation.ValidateStruct(user,
+//	    validation.Field(&user.Name, validation.Required),
+//	    validation.Field(&user.Email, validation.Required, validation.Email),
+//	)
+//	if err != nil {
+//	    // err is of type validation.Errors
+//	    fmt.Println(err)
+//	    // Output:
+//	    // name: cannot be blank; Email: must be a valid email address.
+//	}
+func ValidateStruct(structPtr interface{}, fields ...FieldRules) error {
+	return ValidateStructWithContext(context.Background(), structPtr, fields...)
+}
+
 // ValidateStructWithContext validates a struct with the given context.
 // The only difference between ValidateStructWithContext and ValidateStruct is that the former will
 // validate struct fields with the provided context.

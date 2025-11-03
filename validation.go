@@ -35,6 +35,20 @@ var (
 	validatableType = reflect.TypeOf((*Validatable)(nil)).Elem()
 )
 
+// Validate validates the given value and returns the validation error, if any.
+// Validate performs validation using the following steps:
+//  1. For each rule, call its `ValidateWithContext()` to validate the value if the rule implements `RuleWithContext`.
+//     Otherwise call `Validate()` of the rule. Return if any error is found.
+//  2. If the value being validated implements `Validatable`, call the value's `Validate()`
+//     and return with the validation result.
+//  3. If the value being validated is a map/slice/array, and the element type implements `Validatable`,
+//     for each element call the element value's `Validate()`. Return with the validation result.
+//
+// Validate is equivalent to calling ValidateWithContext with a nil context.
+func Validate(value interface{}, rules ...Rule) error {
+	return ValidateWithContext(context.Background(), value, rules...)
+}
+
 // ValidateWithContext validates the given value with the given context and returns the validation error, if any.
 //
 // ValidateWithContext performs validation using the following steps:
