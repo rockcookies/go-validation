@@ -60,10 +60,11 @@ func Max(max interface{}) ThresholdRule {
 
 // Exclusive sets the comparison to exclude the boundary value.
 func (r ThresholdRule) Exclusive() ThresholdRule {
-	if r.operator == GreaterEqualThan {
+	switch r.operator {
+	case GreaterEqualThan:
 		r.operator = GreaterThan
 		r.err = ErrMinGreaterThanRequired
-	} else if r.operator == LessEqualThan {
+	case LessEqualThan:
 		r.operator = LessThan
 		r.err = ErrMaxLessThanRequired
 	}
