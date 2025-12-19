@@ -1,3 +1,7 @@
+// Copyright 2016 Qiang Xue. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 package validation
 
 import (
@@ -68,12 +72,17 @@ func (n *NamedFieldRules) SetSkipIfNotFound(skip bool) *NamedFieldRules {
 	return n
 }
 
-func (n *NamedFieldRules) FindStructField(structValue reflect.Value, idx int) (*reflect.StructField, any, error) {
-	name := n.name
-
+// toFieldName converts a field name to its struct field representation.
+// If the name starts with a lowercase letter, it converts the first letter to uppercase.
+func toFieldName(name string) string {
 	if name[0] >= 'a' && name[0] <= 'z' {
-		name = strings.ToUpper(name[:1]) + name[1:]
+		return strings.ToUpper(name[:1]) + name[1:]
 	}
+	return name
+}
+
+func (n *NamedFieldRules) FindStructField(structValue reflect.Value, idx int) (*reflect.StructField, any, error) {
+	name := toFieldName(n.name)
 
 	var ft *reflect.StructField
 

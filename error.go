@@ -107,6 +107,7 @@ func (e ErrorObject) Error() string {
 	}
 
 	res := bytes.Buffer{}
+	// template.Must is safe here because the template is a hardcoded string
 	_ = template.Must(template.New("err").Parse(e.message)).Execute(&res, e.params)
 
 	return res.String()
