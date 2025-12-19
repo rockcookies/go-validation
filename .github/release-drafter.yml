@@ -1,5 +1,10 @@
-name-template: 'v Release $NEXT_PATCH_VERSION 🌈'
-tag-template: 'v$NEXT_PATCH_VERSION'
+# Release Drafter configuration
+# https://github.com/release-drafter/release-drafter
+
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+exclude-labels:
+  - 'skip-changelog'
 categories:
   - title: '🚀 Features'
     labels:
@@ -10,11 +15,79 @@ categories:
       - 'fix'
       - 'bugfix'
       - 'bug'
-  - title: '🧰 Maintenance'
-    label: 'chore'
+  - title: '🧹 Maintenance'
+    labels:
+      - 'chore'
+      - 'maintenance'
+      - 'dependencies'
+  - title: '💥 Breaking Changes'
+    labels:
+      - 'breaking-change'
+      - 'breaking'
+  - title: '📚 Documentation'
+    labels:
+      - 'documentation'
+      - 'docs'
+  - title: '⚡ Performance'
+    labels:
+      - 'performance'
+      - 'perf'
+  - title: '🔧 Configuration'
+    labels:
+      - 'configuration'
+      - 'config'
+  - title: '🧪 Testing'
+    labels:
+      - 'testing'
+      - 'test'
+  - title: '✨ Other'
+    labels:
+      - 'other'
+      - 'misc'
+      - 'refactor'
+
+# Template for the release body
 change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
-change-title-escapes: '\<*_&'
+change-title-escapes: '\<*_&' # You can add # and @ to disable mentions
+# Version extraction from commits
+version-resolver:
+  major:
+    labels:
+      - 'major'
+  minor:
+    labels:
+      - 'minor'
+      - 'feature'
+      - 'enhancement'
+  patch:
+    labels:
+      - 'patch'
+      - 'fix'
+      - 'bugfix'
+      - 'bug'
+      - 'chore'
+      - 'maintenance'
+      - 'documentation'
+      - 'docs'
+      - 'performance'
+      - 'perf'
+      - 'configuration'
+      - 'config'
+      - 'testing'
+      - 'test'
+      - 'other'
+      - 'misc'
+      - 'refactor'
+  default: patch
+
+# Header and footer templates
 template: |
-  ## Changes
+  ## What's Changed
 
   $CHANGES
+
+  ## Contributors
+
+  $CONTRIBUTORS
+
+  **Full Changelog**: https://github.com/rockcookies/go-slogs/compare/$PREVIOUS_TAG...v$INPUT_VERSION

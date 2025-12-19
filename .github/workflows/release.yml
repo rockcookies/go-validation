@@ -22,10 +22,10 @@ jobs:
         id: generate_release_notes
         uses: release-drafter/release-drafter@v6
         with:
-          config-name: 'release-drafter.yml'
-          name: "Release ${{ github.ref_name }}"
+          config-name: release-drafter.yml
+          name: ${{ github.ref_name }}
           tag: ${{ github.ref_name }}
+          version: ${{ github.ref_name }}
           publish: true
-          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

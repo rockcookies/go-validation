@@ -1,4 +1,5 @@
 name: Test Go
+
 on:
   push:
     branches-ignore:
@@ -6,6 +7,7 @@ on:
   pull_request:
     branches-ignore:
       - 'gh-pages'
+
 permissions:
   contents: read
 jobs:
